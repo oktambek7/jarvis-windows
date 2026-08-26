@@ -1,0 +1,227 @@
+# ============================================================
+#  JARVIS (Windows) — configuration
+#  Everything you'd normally want to change lives in this file.
+# ============================================================
+
+agent:
+  # Cosmetic only — the wake word is set under wake.model and the spoken
+  # language is pinned in persona.py and gemini.language_code.
+  name: "Jarvis"
+  language: "uz"
+
+  # --------------------------------------------------------
+  #  AUTONOMY — the single most important line in this file.
+  #
+  #  "guarded" : reads, screenshots and app launches run
+  #              instantly; destructive commands (Remove-Item,
+  #              format, taskkill, winget install, registry
+  #              writes, git push) speak a confirmation and
+  #              wait for you to type y / ha.
+  #
+  #  "full"    : every tool runs immediately, no confirmation.
+  #              Fastest, most Jarvis-like. A misheard voice
+  #              command CAN delete files. Everything is still
+  #              written to logs/audit.jsonl.
+  #
+  #  Shipped as "guarded" deliberately. run_shell is PowerShell
+  #  with your full user rights and speech recognition is not
+  #  perfect — spend a day on "guarded" before you flip it.
+  #
+  #  Flip this one word to change behaviour. Nothing else.
+  # --------------------------------------------------------
+  autonomy: "guarded"
+
+# ---------------- Wake word ----------------
+wake:
+  enabled: true
+  # openWakeWord ships a pretrained "hey_jarvis" model — no training,
+  # no API key, runs locally on CPU in ~1% of one core.
+  model: "hey_jarvis"
+  # 0.0-1.0. Lower = triggers more easily (more false wakes).
+  # 0.5 is a good start; raise to 0.6-0.7 in a noisy room.
+  threshold: 0.5
+  # Seconds of silence before Jarvis closes the session and goes back to
+  # sleep. Until it sleeps you can keep talking WITHOUT saying "Hey Jarvis"
+  # again — this is the length of the follow-up window.
+  # Longer = more natural conversation, but you're billed for the open
+  # session (~$0.005/min), so don't set this to minutes.
+  silence_timeout: 20.0
+  # Play a short blip when the wake word fires.
+  chime: true
+
+# ---------------- Gemini Live ----------------
+gemini:
+  # Realtime audio socket. Must be a model that supports bidiGenerateContent.
+  # Alternatives: gemini-2.5-flash-native-audio-latest
+  model: "gemini-3.1-flash-live-preview"
+
+  # Turn-based text model, used by `--text` mode and screen vision.
+  # Not the Live model — that one only speaks over a WebSocket.
+  text_model: "gemini-3.7-flash"
+
+  # Preview models return 503 under load. If the primary is busy, Jarvis walks
+  # down this list rather than failing at you. Order matters: newest first.
+  text_model_fallbacks:
+    - "gemini-3.6-flash"
+    - "gemini-3.5-flash"
+    - "gemini-2.5-flash"
+
+  # Voice used when tts.backend = "gemini".
+  # Options: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr
+  voice: "Charon"
+
+  # --------------------------------------------------------
+  #  Pin the speech language. This matters a lot for Uzbek.
+  #
+  #  Left unset, the model auto-detects language per utterance —
+  #  and it reliably mistakes Uzbek for Spanish or Turkish,
+  #  because those are far commoner in its training data.
+  #  ("Batareyam necha foiz" came back as "Bateria de mi coche".)
+  #  It usually still gets your INTENT right, but the transcript
+  #  is wrong and it occasionally answers the wrong question.
+  #
+  #  Pinning uz-UZ removes that guesswork.
+  #
+  #  Cost: no automatic mid-sentence switching to Russian or
+  #  English. Set to null if you'd rather have the switching and
+  #  accept the misrecognition.
+  #
+  #  NOTE: only half-cascade Live models accept this. The
+  #  gemini-2.5-flash-native-audio-* models reject uz-UZ and will
+  #  fail to connect — set this to null if you switch to one.
+  # --------------------------------------------------------
+  language_code: "uz-UZ"
+  # Let Gemini send us text transcripts alongside audio, so we can
+  # log the conversation and mirror it into memory.
+  transcripts: true
+
+  # Let Jarvis answer factual questions (weather, news, exchange rates) from
+  # Google Search instead of opening a browser tab at you. If the server ever
+  # refuses Search alongside our own tools, Jarvis drops it and reconnects
+  # automatically — it won't leave you with a dead wake word.
+  google_search: true
+
+  # Server-side voice activity detection. Works together with
+  # audio.echo_mode to stop Jarvis interrupting itself.
+  vad:
+    # THE echo fix. false = the server refuses to let incoming audio cut off
+    # a reply in progress, so Jarvis cannot interrupt itself no matter what
+    # leaks from your speakers into the mic. You lose the ability to interrupt
+    # it too — set this to true once you're wearing headphones.
+    allow_interruption: false
+
+    # LOW = needs clearer, more confident speech before deciding you've
+    # started talking. This is what stops stray echo cutting Jarvis off.
+    # Set to HIGH if it's ignoring you when you genuinely do interrupt.
+    start_sensitivity: "LOW"
+    # LOW = waits longer before deciding you've finished. Helps if Jarvis
+    # jumps in while you're still thinking mid-sentence.
+    end_sensitivity: "LOW"
+    # Audio kept from just before speech was detected, so your first
+    # syllable isn't clipped.
+    prefix_padding_ms: 300
+    # How long you must be quiet before Jarvis takes its turn.
+    silence_duration_ms: 900
+
+# ---------------- Speech output ----------------
+tts:
+  # "gemini" : native audio out of the Live model. ~0.5s, supports
+  #            barge-in. This is the default and what you want.
+  #
+  # "aisha"  : route spoken output through Aisha AI's Uzbek voice
+  #            instead. Better Uzbek accent, but their API is
+  #            request/response (no streaming), so expect +1.5-3s
+  #            per reply and NO barge-in. Understanding still runs
+  #            on Gemini either way.
+  #            Requires AISHA_API_KEY in .env AND ffmpeg on PATH:
+  #              winget install Gyan.FFmpeg
+  #
+  # Try "gemini" first. Only switch if the Uzbek accent bothers you.
+  backend: "gemini"
+
+  aisha:
+    model: "Gulnoza"        # currently their only named Uzbek voice
+    mood: "Neutral"         # Neutral | Cheerful | Happy | Sad
+    speed: 1.0              # 0.5 - 2.0
+    max_chars: 1000         # hard API limit; longer text is chunked
+
+# ---------------- Claude Code (the "hands") ----------------
+# Gemini is the voice and the reflexes. Anything that needs real
+# multi-step work — writing code, refactoring a repo, researching,
+# driving a long task — gets handed to Claude Code headless.
+#
+#   npm install -g @anthropic-ai/claude-code
+#
+# If the CLI isn't installed, Jarvis hides the delegation tools
+# rather than offering something that always fails.
+claude:
+  enabled: true
+  command: "claude"
+  model: "opus"
+  # Max seconds to let a delegated task run before giving up.
+  timeout: 900
+  # Where Claude runs by default when the request doesn't name a path.
+  # "~" resolves to C:\Users\<you>.
+  default_cwd: "~"
+
+# ---------------- Audio plumbing ----------------
+audio:
+  input_rate: 16000     # Gemini Live requires 16kHz PCM in
+  output_rate: 24000    # Gemini Live emits 24kHz PCM out
+  chunk_ms: 32
+  # null = system default. To pin a device, run:
+  #   python -m jarvis --devices
+  # and put the integer index here.
+  input_device: null
+  output_device: null
+
+  # ---------------- ECHO CONTROL ----------------
+  # Read this if Jarvis keeps cutting itself off mid-sentence. On laptop
+  # speakers the mic picks up Jarvis's own voice, Gemini's VAD reads that as
+  # you interrupting, and it stops talking.
+  #
+  #   "gate" : measure how loud the echo is at the start of each reply, then
+  #            only forward mic audio clearly louder than that. Kills the echo
+  #            but you CAN still interrupt by speaking up.
+  #
+  #   "mute" : mic is completely deaf while Jarvis speaks. Bulletproof against
+  #            echo, but interrupting becomes impossible.
+  #
+  #   "open" : no gating at all. Correct when you're on headphones — there is
+  #            no echo to cancel and this gives the snappiest barge-in.
+  #
+  # Shipped as "mute" because the gate calibrates in the first ~130 ms after
+  # audio is QUEUED, and laptop speakers haven't physically ramped up by then —
+  # it measures near-silence and sets the bar far too low. Switch to "open" the
+  # moment you put headphones on.
+  echo_mode: "mute"
+
+  # Gate tuning. Only used when echo_mode is "gate".
+  #   multiplier — how much louder than the measured echo your voice must be.
+  #                Raise to 3-4 if Jarvis still interrupts itself.
+  #                Lower to ~1.8 if you have to shout to interrupt it.
+  #   min_rms    — absolute floor, so a silent room can't set the bar at zero.
+  echo_gate_multiplier: 2.5
+  echo_gate_min_rms: 900
+
+# ---------------- Storage ----------------
+storage:
+  db: "data/jarvis.db"
+  audit_log: "logs/audit.jsonl"
+
+  # How many past conversation turns to inject at session start. Tool calls
+  # are NOT counted — they stay in the database for the audit trail but are
+  # kept out of the prompt, where raw shell JSON was eating a third of the
+  # window. Anything older than this window is still reachable via the
+  # search_history tool, so this is a recency buffer, not a memory limit.
+  context_turns: 40
+
+# ---------------- Memory ----------------
+memory:
+  # After each conversation, a cheap text model reads what was SAID and pulls
+  # out durable facts (project paths, names, preferences, ongoing work) into
+  # permanent memory. Runs in the background, never blocks a conversation.
+  #
+  # Without this, memory only grows when the model volunteers a `remember`
+  # call — which in practice it almost never does.
+  auto_facts: true

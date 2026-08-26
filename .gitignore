@@ -1,0 +1,26 @@
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Jarvis runtime state
+data/
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/

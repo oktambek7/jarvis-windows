@@ -1,0 +1,97 @@
+# Jarvis 🎙 (Windows)
+
+An Uzbek-speaking voice agent that lives on your Windows PC and can actually do
+things on it.
+
+Say **"Hey Jarvis"**, talk to it in Uzbek, and it runs commands, reads your
+screen, writes code, and remembers what you told it.
+
+```
+Siz:    Hey Jarvis… batareyam necha foiz?
+Jarvis: Batareyangiz 10 foiz qolgan, quvvatlagichga ulashni tavsiya qilaman.
+```
+
+```
+  mic ──► openWakeWord ──► Gemini Live ──┬──► 16 tools ──► your PC
+        ("hey jarvis",     (WebSocket)   │
+         local, free)                    └──► delegate_to_claude ──► Claude Code
+                                                                          │
+                                  SQLite memory ◄────────────────────────┘
+```
+
+**Gemini Live** is the ears and mouth — one WebSocket, ~0.5 s round trip, native
+Uzbek. **Claude Code** is the hands — anything that needs real multi-step work
+gets handed to it headless. The wake word runs locally, so no audio leaves your
+machine and nothing is billed until you actually say it.
+
+This is a Windows port of [mukhitdinov0107/ai_agent](https://github.com/mukhitdinov0107/ai_agent),
+which targets macOS. Same architecture, same Uzbek persona; the platform layer
+is rewritten around PowerShell. See [docs/GUIDE.md](docs/GUIDE.md) for what
+changed and why.
+
+## Setup
+
+Requires **Windows 10/11** and **Python 3.11 or 3.12** (not 3.13 — openWakeWord
+does not support it yet).
+
+```powershell
+git clone https://github.com/oktambek7/jarvis-windows
+cd jarvis-windows
+
+py -3.12 -m venv .venv
+.venv\Scripts\python -m pip install -e .
+
+copy .env.example .env       # add a free key from aistudio.google.com/apikey
+.venv\Scripts\python -m jarvis --doctor
+.venv\Scripts\python -m jarvis
+```
+
+Windows will ask for **microphone** permission the first time. If it does not,
+enable it manually under *Settings → Privacy & security → Microphone → Let
+desktop apps access your microphone*. `--doctor` checks this and everything else
+before you trust it with your PC.
+
+The Claude Code CLI is what makes Jarvis able to write code and do multi-step
+work. Install it with:
+
+```powershell
+npm install -g @anthropic-ai/claude-code
+```
+
+Without it, Jarvis hides the delegation tools rather than offering something
+that always fails — everything else still works.
+
+## Try it without a microphone first
+
+The fastest way to confirm the setup is sound, before debugging any audio:
+
+```powershell
+.venv\Scripts\python -m jarvis --text "papkamda qanday fayllar bor?"
+.venv\Scripts\python -m jarvis --text "kalkulyatorni och"
+```
+
+If those work, the tool layer, the Uzbek persona and your API key are all fine
+and anything left is audio tuning.
+
+## Configuration
+
+Everything you'd want to change lives in **`config.yaml`**, including
+`agent.autonomy`:
+
+- `"guarded"` (default) — reads, screenshots and app launches run instantly;
+  destructive commands ask first
+- `"full"` — no confirmations, fastest, most Jarvis-like
+
+Every tool call is written to `logs/audit.jsonl` either way.
+
+> ⚠️ Jarvis runs PowerShell with your full user rights. On `autonomy: "full"` a
+> misheard command can delete files. This port ships `"guarded"` deliberately —
+> spend a day on it before you flip the switch.
+
+## More
+
+**[docs/GUIDE.md](docs/GUIDE.md)** — the 16 tools, how memory works, echo and
+microphone tuning, the Aisha Uzbek voice, troubleshooting, code layout, and the
+full list of differences from the macOS original.
+
+MIT licensed, like the project it is ported from.
