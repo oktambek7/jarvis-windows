@@ -188,9 +188,13 @@ class LiveSession:
                 self.cfg.get("gemini.google_search", True) and not self._search_unsupported
             )
             never_opened = self._session is None
+            # Search grounding is billed/gated separately from base model
+            # quota, so a key with plenty of quota otherwise still gets
+            # quota-rejected the instant Search is attached — same failure
+            # as the hard "not supported" one, just phrased as quota/billing.
             blames_tools = any(
                 word in str(exc).lower()
-                for word in ("tool", "google_search", "search", "invalid", "not supported")
+                for word in ("tool", "google_search", "search", "invalid", "not supported", "quota", "billing")
             )
             if searching and never_opened and blames_tools:
                 self._retry_without_search = True

@@ -21,6 +21,33 @@ from google.genai import errors
 RETRYABLE = {429, 500, 502, 503, 504}
 
 
+def _without_search_tool(config):
+    """Drop the Google Search tool, for keys/models that reject combining it
+    with our function declarations. Returns None if there was no search tool
+    to drop.
+    """
+    if config is None or not getattr(config, "tools", None):
+        return None
+    tools = [t for t in config.tools if getattr(t, "google_search", None) is None]
+    if len(tools) == len(config.tools):
+        return None
+    return config.model_copy(update={"tools": tools, "tool_config": None})
+
+
+def _blames_search_tool(exc: Exception) -> bool:
+    """Whether Search grounding is the real culprit behind this failure.
+
+    Some keys/tiers can't use Search grounding at all, and that shows up
+    differently per model: a hard 400 ("tool call context circulation is
+    not enabled") on older models, or a 429 "exceeded your quota... billing"
+    on newer ones — Search grounding is billed/gated separately from base
+    model quota, so a key with plenty of quota for plain generation can
+    still get quota-rejected the instant Search is attached.
+    """
+    text = str(exc).lower()
+    return "tool call context circulation" in text or ("quota" in text and "billing" in text)
+
+
 def agent_config(cfg, system_instruction: str | None = None):
     """Build the GenerateContentConfig used by every turn-based surface.
 
@@ -73,10 +100,11 @@ async def generate(
     last: Exception | None = None
 
     for index, model in enumerate(model_chain(cfg, primary)):
+        active_config = config
         for attempt in range(attempts_per_model):
             try:
                 response = await client.aio.models.generate_content(
-                    model=model, contents=contents, config=config
+                    model=model, contents=contents, config=active_config
                 )
                 if index > 0 and log:
                     log.info(f"(fallback modeli ishlatildi: {model})")
@@ -84,6 +112,13 @@ async def generate(
 
             except (errors.ServerError, errors.ClientError) as exc:
                 code = getattr(exc, "code", None)
+                if _blames_search_tool(exc):
+                    stripped = _without_search_tool(active_config)
+                    if stripped is not None:
+                        active_config = stripped
+                        if log:
+                            log.warn(f"{model} qidiruvni funksiyalar bilan birga qo'llamaydi — qidiruvsiz qayta urinildi")
+                        continue
                 if code not in RETRYABLE:
                     raise
                 last = exc
