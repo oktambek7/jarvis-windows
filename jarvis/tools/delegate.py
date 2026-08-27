@@ -39,7 +39,7 @@ def claude_executable(cfg) -> str | None:
     return winplat.resolve_executable(str(cfg.get("claude.command", "claude")))
 
 
-def _claude_argv(cfg, task: str, cwd: Path) -> list[str]:
+def _claude_argv(cfg, task: str, cwd: Path, model: str) -> list[str]:
     # On Windows npm installs the CLI as claude.cmd, and CreateProcess cannot
     # execute a batch file — it must be launched through cmd /c. Resolving the
     # full path first also means a PATH that is fine in the shell but not in
@@ -48,7 +48,7 @@ def _claude_argv(cfg, task: str, cwd: Path) -> list[str]:
     args = [
         "-p", task,
         "--output-format", "json",
-        "--model", str(cfg.get("claude.model", "opus")),
+        "--model", model,
         "--append-system-prompt", VOICE_CONTEXT,
         "--add-dir", str(cwd),
     ]
@@ -79,9 +79,15 @@ def _extract_text(stdout: str) -> str:
     return stdout[:4000]
 
 
-async def _run_claude(cfg, task: str, cwd: Path) -> tuple[bool, str]:
+async def _run_claude(cfg, task: str, cwd: Path, model: str) -> tuple[bool, str, bool]:
+    """Returns (ok, text, timed_out). timed_out is broken out separately so
+    the caller can decide whether escalating to a stronger model is worth it
+    — retrying a timeout on a slower, pricier model just pays double for
+    another likely timeout, so that case skips escalation entirely.
+    """
     proc = await asyncio.create_subprocess_exec(
-        *_claude_argv(cfg, task, cwd),
+        *_claude_argv(cfg, task, cwd, model),
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=str(cwd),
@@ -92,28 +98,53 @@ async def _run_claude(cfg, task: str, cwd: Path) -> tuple[bool, str]:
         out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
         proc.kill()
-        return False, f"Vazifa {int(timeout)} soniyada tugamadi."
+        return False, f"Vazifa {int(timeout)} soniyada tugamadi.", True
 
     if proc.returncode != 0:
         detail = err.decode("utf-8", "replace").strip()[:1000]
-        return False, f"Claude xato qaytardi: {detail or 'unknown error'}"
+        return False, f"Claude xato qaytardi: {detail or 'unknown error'}", False
 
-    return True, _extract_text(out.decode("utf-8", "replace"))
+    return True, _extract_text(out.decode("utf-8", "replace")), False
+
+
+async def _run_claude_with_escalation(cfg, task: str, cwd: Path, log=None) -> tuple[bool, str]:
+    """Try the cheap model first; only pay for the expensive one if the cheap
+    run actually failed (crash, non-zero exit) — not merely timed out.
+
+    This keeps the common case (task succeeds) on the cheap model while still
+    giving hard tasks a real second chance, so tightening the budget doesn't
+    turn into "Jarvis just fails more often."
+    """
+    primary = str(cfg.get("claude.model", "sonnet"))
+    ok, text, timed_out = await _run_claude(cfg, task, cwd, primary)
+    if ok or timed_out:
+        return ok, text
+
+    escalate = str(cfg.get("claude.escalate_model", "") or "").strip()
+    if not escalate or escalate == primary:
+        return ok, text
+
+    if log:
+        log.warn(f"{primary} vazifani bajara olmadi — {escalate} bilan qayta urinildi")
+    ok2, text2, _ = await _run_claude(cfg, task, cwd, escalate)
+    return ok2, text2
 
 
 @registry.tool(
     name="delegate_to_claude",
     description=(
         "Hand a substantial task to Claude Code, which has full autonomous access "
-        "to the user's machine and can work for minutes. USE THIS FOR: writing or "
-        "editing code, fixing bugs, refactoring, creating projects, running and "
-        "interpreting test suites, git workflows, research across many files, "
-        "installing and configuring software, anything needing several steps or "
-        "real reasoning. DO NOT use it for one-liners like checking the time, "
-        "opening an app or reading a single file — do those yourself with "
-        "run_shell. Set background=true for anything expected to take over a "
-        "minute; the user will be notified when it finishes rather than waiting "
-        "in silence."
+        "to the user's machine and can work for minutes. This is expensive — each "
+        "call runs a real agentic coding model — so only reach for it when the "
+        "task genuinely needs it. USE THIS FOR: writing or editing code, fixing "
+        "bugs, refactoring, creating projects, running and interpreting test "
+        "suites, git workflows, research across many files, installing and "
+        "configuring software, anything needing several steps or real reasoning. "
+        "DO NOT use it for: one-liners like checking the time, opening an app or "
+        "reading a single file (use run_shell); looking something up or opening "
+        "a link (use google_search / open_url). Set background=true for anything "
+        "expected to take over a minute; the user will be notified when it "
+        "finishes rather than waiting in silence."
     ),
     parameters={
         "type": "OBJECT",
@@ -161,14 +192,14 @@ async def delegate_to_claude(
     job_id = memory.job_start(surface, task, str(workdir)) if memory else -1
 
     if not background:
-        ok, text = await _run_claude(cfg, task, workdir)
+        ok, text = await _run_claude_with_escalation(cfg, task, workdir)
         if memory:
             memory.job_finish(job_id, ok, text)
         return {"ok": ok, "job_id": job_id, ("result" if ok else "error"): text}
 
     # Background: return immediately, announce the result when it lands.
     async def _bg() -> None:
-        ok, text = await _run_claude(cfg, task, workdir)
+        ok, text = await _run_claude_with_escalation(cfg, task, workdir)
         if memory:
             memory.job_finish(job_id, ok, text)
         announce = ctx.get("announce")

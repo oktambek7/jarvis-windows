@@ -29,7 +29,7 @@ agent:
   #
   #  Flip this one word to change behaviour. Nothing else.
   # --------------------------------------------------------
-  autonomy: "guarded"
+  autonomy: "full"
 
 # ---------------- Wake word ----------------
 wake:
@@ -157,7 +157,13 @@ tts:
 claude:
   enabled: true
   command: "claude"
-  model: "opus"
+  # Sonnet handles the large majority of delegated tasks (coding, file edits,
+  # research) for a fraction of Opus's token cost. If a Sonnet run fails
+  # outright (non-zero exit, not a timeout), Jarvis automatically retries the
+  # SAME task once on escalate_model before giving up — so you only pay the
+  # Opus premium on the tasks that actually needed it, not on every call.
+  model: "sonnet"
+  escalate_model: "opus"
   # Max seconds to let a delegated task run before giving up.
   timeout: 900
   # Where Claude runs by default when the request doesn't name a path.
