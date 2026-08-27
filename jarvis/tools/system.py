@@ -262,6 +262,55 @@ async def open_app(name: str) -> dict:
     return {"ok": True, "opened": name, "detail": result.get("stdout", "")}
 
 
+# Matches on window title OR process name, case-insensitively, because a Store
+# app's process name routinely differs from what a person calls it — e.g.
+# Calculator shows up as CalculatorApp, WhatsApp as WhatsApp.exe under a
+# WhatsAppDesktop-prefixed AppX process, etc. open_app resolves the same way.
+_CLOSE_APP_SCRIPT = """
+  $name = {name}
+  $procs = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {{
+    $_.MainWindowTitle -ieq $name -or $_.ProcessName -ieq $name -or
+    $_.MainWindowTitle -ilike "*$name*" -or $_.ProcessName -ilike "*$name*"
+  }})
+  if (-not $procs) {{
+    [Console]::Error.WriteLine("No running process matching '$name' was found.")
+    exit 3
+  }}
+  $names = ($procs | Select-Object -ExpandProperty ProcessName -Unique) -join ", "
+  $procs | Stop-Process -Force -ErrorAction Stop
+  Write-Output "closed:$names"
+"""
+
+
+@registry.tool(
+    name="close_app",
+    description=(
+        "Close a running Windows application by name, e.g. 'Calculator', "
+        "'Notepad', 'Telegram', 'Chrome'. Matches by window title or process "
+        "name, so it works even when the process name differs from the "
+        "app's display name."
+    ),
+    parameters={
+        "type": "OBJECT",
+        "properties": {"name": {"type": "STRING"}},
+        "required": ["name"],
+    },
+)
+async def close_app(name: str, ctx: dict) -> dict:
+    refusal = await _confirm_if_needed(ctx, f"{name} ilovasini yopaymi?", True)
+    if refusal:
+        return {"ok": False, "error": refusal}
+
+    script = _CLOSE_APP_SCRIPT.format(name=winplat.ps_quote(name))
+    result = await _powershell(script, timeout=20)
+    if not result.get("ok"):
+        return {
+            "ok": False,
+            "error": result.get("stderr") or result.get("error") or f"Could not close {name}",
+        }
+    return {"ok": True, "closed": name, "detail": result.get("stdout", "")}
+
+
 @registry.tool(
     name="open_url",
     description="Open a URL in the default browser.",
