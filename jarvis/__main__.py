@@ -116,9 +116,12 @@ async def _doctor(config_path: Path | None) -> int:
     # -- wake word --
     try:
         from openwakeword.model import Model
+        from openwakeword.utils import download_models
 
-        Model(wakeword_models=[str(cfg.get("wake.model", "hey_jarvis"))], inference_framework="onnx")
-        row("Uyg'otish so'zi", True, str(cfg.get("wake.model")))
+        wake_model = str(cfg.get("wake.model", "hey_jarvis"))
+        download_models([wake_model])  # no-op once cached
+        Model(wakeword_models=[wake_model], inference_framework="onnx")
+        row("Uyg'otish so'zi", True, wake_model)
     except Exception as exc:  # noqa: BLE001
         row("Uyg'otish so'zi", False, str(exc)[:160])
 
