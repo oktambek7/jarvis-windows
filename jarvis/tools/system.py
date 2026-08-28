@@ -401,7 +401,7 @@ def _grab_screen(target: Path) -> str | None:
         return "mss is not installed — run: pip install mss"
 
     try:
-        with mss.mss() as sct:
+        with mss.MSS() as sct:
             # monitors[0] is the union of every display; [1] is the primary.
             # Grabbing the union on a multi-monitor desk produces a very wide,
             # mostly-empty image that the vision model reads poorly.

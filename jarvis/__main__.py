@@ -134,7 +134,7 @@ async def _doctor(config_path: Path | None) -> int:
     try:
         import mss
 
-        with mss.mss() as sct:
+        with mss.MSS() as sct:
             count = max(len(sct.monitors) - 1, 0)
         row("Ekranni ko'rish", count > 0, f"{count} ta monitor")
     except Exception as exc:  # noqa: BLE001
