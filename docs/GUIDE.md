@@ -17,10 +17,13 @@ jarvis/
 ├── console.py      terminal output
 ├── config.py       config.yaml + .env loading
 ├── tools/
-│   ├── base.py     the registry + the destructive-command safety net
-│   ├── system.py   the 10 tools that touch Windows
-│   ├── delegate.py handing work to Claude Code
-│   └── recall.py   memory tools
+│   ├── base.py       the registry + the destructive-command safety net
+│   ├── system.py     the 10 tools that touch Windows
+│   ├── delegate.py   handing work to Claude Code (fallback hands)
+│   ├── gemini_agent.py  handing work to Jarvis's own Gemini agent (default hands)
+│   ├── agentwork.py  shared grace-period/background delivery for both of the above
+│   ├── telegram.py   send_telegram_message, via Telethon
+│   └── recall.py     memory tools
 └── voice/
     ├── base.py     native (Gemini) speech output
     └── aisha.py    optional Uzbek TTS
@@ -31,16 +34,43 @@ audio, ask openWakeWord if it heard "hey jarvis", discard it. No network, no API
 cost. Only when the wake word fires does a Gemini Live socket open — which is
 also why you are not billed for sitting in silence.
 
-## The 16 tools
+## The tools
 
-**Machine control** — `run_shell`, `open_app`, `open_url`, `notify`,
-`clipboard_read`, `clipboard_write`, `see_screen`
+**Machine control** — `run_shell`, `open_app`, `close_app`, `open_url`,
+`notify`, `clipboard_read`, `clipboard_write`, `see_screen`
 
 **Files** — `read_file`, `write_file`, `list_dir`
 
 **Memory** — `remember`, `recall`, `forget`, `search_history`
 
-**Delegation** — `delegate_to_claude`, `check_jobs`
+**Messaging** — `send_telegram_message` (hidden until `TELEGRAM_API_ID` /
+`TELEGRAM_API_HASH` are set and `--telegram-login` has been run — see below)
+
+**Delegation** — `delegate_to_gemini` (default hands, spends Gemini quota),
+`delegate_to_claude` (fallback hands, spends Claude quota), `check_jobs`
+
+### Delegation: grace period, then background
+
+Both delegation tools share `tools/agentwork.py`'s `deliver()`: a task gets
+`GRACE_SECONDS` (12s) to finish inline before Jarvis stops blocking the
+conversation on it. Past that — or if the model set `background: true` up
+front — the task keeps running and its result is delivered later through
+`announce()` (spoken if a session is live, a Windows toast otherwise), same
+as any other background job. Before this existed, a task that took longer
+than the model expected but wasn't explicitly backgrounded would hang the
+entire Live turn for as long as it ran — up to `claude.timeout` (900s) — and
+read as Jarvis having gone silent or ignored the request.
+
+### `delegate_to_gemini`
+
+Runs the same tool registry through a private, non-Live text call, driving
+its own turn-by-turn loop (up to `gemini_agent.MAX_STEPS`, 20) instead of
+Gemini Live's one-tool-call-at-a-time Live turns. Its own declarations
+exclude `delegate_to_gemini` / `delegate_to_claude` / `check_jobs` so it
+can't recurse into delegating to itself. This is what the `--text` CLI mode
+was already doing in an 8-step loop; `delegate_to_gemini` is that same
+pattern exposed to the voice session with a higher step budget, since it now
+also carries tasks that used to go straight to Claude.
 
 ### `run_shell` is the important one
 
@@ -75,7 +105,8 @@ Three layers, all in one SQLite file (`data/jarvis.db`):
   `storage.context_turns` (default 40); anything older is reachable via
   `search_history`, so memory is a recency buffer, not a limit.
 - **facts** — durable things worth keeping (`remember` / `recall` / `forget`).
-- **jobs** — background Claude Code tasks and their results.
+- **jobs** — background delegated tasks (Gemini agent or Claude Code) and
+  their results, listed by `check_jobs`.
 
 `memory.auto_facts` runs a cheap model over each finished conversation and
 extracts durable facts automatically. Without it, memory only grows when the
@@ -230,9 +261,17 @@ make the model dither over which to pick. The AppleScript use cases — driving
 apps, window management, system automation — are advertised in `run_shell`'s
 description instead.
 
-**Not ported:** the Telegram bridge, and the Obsidian and Notion tools. The
-original hides unconfigured integrations cleanly, so they can be added back
-without restructuring anything. That takes the tool count from 24 to 16.
+**Not ported:** the Obsidian and Notion tools. The original hides unconfigured
+integrations cleanly, so they can be added back without restructuring
+anything.
+
+**Telegram is ported, differently.** The macOS original's Telegram bridge
+isn't documented here in enough detail to port as-is, so this port's
+`send_telegram_message` (`jarvis/tools/telegram.py`) was built fresh on
+Telethon (the MTProto *user* API): it logs in as the user via
+`python -m jarvis --telegram-login` and can message anyone already in their
+contacts or chat list, which a Bot API integration cannot do (a bot can only
+message a chat that started the conversation with it).
 
 **Changed default:** the original ships `autonomy: "full"`. This port ships
 `"guarded"`.

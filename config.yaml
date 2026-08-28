@@ -145,15 +145,19 @@ tts:
     speed: 1.0              # 0.5 - 2.0
     max_chars: 1000         # hard API limit; longer text is chunked
 
-# ---------------- Claude Code (the "hands") ----------------
-# Gemini is the voice and the reflexes. Anything that needs real
-# multi-step work — writing code, refactoring a repo, researching,
-# driving a long task — gets handed to Claude Code headless.
+# ---------------- Claude Code (the fallback "hands") ----------------
+# Gemini is the voice and the reflexes, and — via delegate_to_gemini — the
+# DEFAULT hands too: multi-step work (writing code, refactoring, research,
+# automation) is driven through Gemini's own tool loop first, spending
+# Gemini quota rather than Claude's. Claude Code only gets used as a
+# fallback when the Gemini agent fails outright, or when explicitly asked
+# for.
 #
 #   npm install -g @anthropic-ai/claude-code
 #
-# If the CLI isn't installed, Jarvis hides the delegation tools
-# rather than offering something that always fails.
+# If the CLI isn't installed, Jarvis hides the Claude delegation tools
+# rather than offering something that always fails — delegate_to_gemini
+# still works without it.
 claude:
   enabled: true
   command: "claude"
@@ -166,8 +170,9 @@ claude:
   escalate_model: "opus"
   # Max seconds to let a delegated task run before giving up.
   timeout: 900
-  # Where Claude runs by default when the request doesn't name a path.
-  # "~" resolves to C:\Users\<you>.
+  # Where a delegated task runs by default when the request doesn't name a
+  # path. Shared by delegate_to_claude AND delegate_to_gemini. "~" resolves
+  # to C:\Users\<you>.
   default_cwd: "~"
 
 # ---------------- Telegram ----------------

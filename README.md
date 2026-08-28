@@ -12,17 +12,22 @@ Jarvis: Batareyangiz 10 foiz qolgan, quvvatlagichga ulashni tavsiya qilaman.
 ```
 
 ```
-  mic ──► openWakeWord ──► Gemini Live ──┬──► 16 tools ──► your PC
-        ("hey jarvis",     (WebSocket)   │
-         local, free)                    └──► delegate_to_claude ──► Claude Code
+  mic ──► openWakeWord ──► Gemini Live ──┬──► ~19 tools ──► your PC
+        ("hey jarvis",     (WebSocket)   │      (incl. Telegram)
+         local, free)                    ├──► delegate_to_gemini ──► same tools, many steps
+                                          └──► delegate_to_claude  ──► Claude Code (fallback)
                                                                           │
                                   SQLite memory ◄────────────────────────┘
 ```
 
 **Gemini Live** is the ears and mouth — one WebSocket, ~0.5 s round trip, native
-Uzbek. **Claude Code** is the hands — anything that needs real multi-step work
-gets handed to it headless. The wake word runs locally, so no audio leaves your
-machine and nothing is billed until you actually say it.
+Uzbek. For anything needing several steps, Jarvis first hands it to its own
+**Gemini agent** (`delegate_to_gemini`), which drives the same tools through a
+private multi-turn loop — this spends your Gemini quota instead of Claude's.
+**Claude Code** (`delegate_to_claude`) is the fallback hands, used only if the
+Gemini agent fails or you explicitly ask for Claude. The wake word runs
+locally, so no audio leaves your machine and nothing is billed until you
+actually say it.
 
 This is a Windows port of [mukhitdinov0107/ai_agent](https://github.com/mukhitdinov0107/ai_agent),
 which targets macOS. Same architecture, same Uzbek persona; the platform layer
@@ -51,15 +56,21 @@ enable it manually under *Settings → Privacy & security → Microphone → Let
 desktop apps access your microphone*. `--doctor` checks this and everything else
 before you trust it with your PC.
 
-The Claude Code CLI is what makes Jarvis able to write code and do multi-step
-work. Install it with:
+Multi-step work (writing code, multi-step automation, research) is handled by
+Jarvis's own Gemini agent by default — no extra install needed. The Claude
+Code CLI is optional and used only as a fallback if that fails. Install it
+with:
 
 ```powershell
 npm install -g @anthropic-ai/claude-code
 ```
 
-Without it, Jarvis hides the delegation tools rather than offering something
-that always fails — everything else still works.
+Without it, Jarvis hides the Claude delegation tools rather than offering
+something that always fails — everything else, including `delegate_to_gemini`,
+still works.
+
+Telegram messaging (`send_telegram_message`) is also optional — see
+[docs/GUIDE.md](docs/GUIDE.md) for the one-time `--telegram-login` setup.
 
 ## Try it without a microphone first
 
@@ -90,7 +101,7 @@ Every tool call is written to `logs/audit.jsonl` either way.
 
 ## More
 
-**[docs/GUIDE.md](docs/GUIDE.md)** — the 16 tools, how memory works, echo and
+**[docs/GUIDE.md](docs/GUIDE.md)** — the full tool list, how memory works, echo and
 microphone tuning, the Aisha Uzbek voice, troubleshooting, code layout, and the
 full list of differences from the macOS original.
 
