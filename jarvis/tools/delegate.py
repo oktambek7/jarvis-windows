@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 
 from .. import winplat
+from .agentwork import deliver
 from .base import registry
 
 # What Claude is told about the context it's running in. Without this it writes
@@ -134,17 +135,19 @@ async def _run_claude_with_escalation(cfg, task: str, cwd: Path, log=None) -> tu
     name="delegate_to_claude",
     description=(
         "Hand a substantial task to Claude Code, which has full autonomous access "
-        "to the user's machine and can work for minutes. This is expensive — each "
-        "call runs a real agentic coding model — so only reach for it when the "
-        "task genuinely needs it. USE THIS FOR: writing or editing code, fixing "
-        "bugs, refactoring, creating projects, running and interpreting test "
-        "suites, git workflows, research across many files, installing and "
-        "configuring software, anything needing several steps or real reasoning. "
-        "DO NOT use it for: one-liners like checking the time, opening an app or "
-        "reading a single file (use run_shell); looking something up or opening "
-        "a link (use google_search / open_url). Set background=true for anything "
-        "expected to take over a minute; the user will be notified when it "
-        "finishes rather than waiting in silence."
+        "to the user's machine and can work for minutes. This spends Claude "
+        "tokens, which are the more limited budget — prefer delegate_to_gemini "
+        "for the same class of task, and only reach for this one if Gemini's "
+        "agent already failed, or the user explicitly asks for Claude. USE THIS "
+        "FOR: writing or editing code, fixing bugs, refactoring, creating "
+        "projects, running and interpreting test suites, git workflows, research "
+        "across many files, installing and configuring software, anything "
+        "needing several steps or real reasoning. DO NOT use it for: one-liners "
+        "like checking the time, opening an app or reading a single file (use "
+        "run_shell); looking something up or opening a link (use google_search / "
+        "open_url). Set background=true for anything expected to take over a "
+        "minute; the user will be notified when it finishes rather than waiting "
+        "in silence."
     ),
     parameters={
         "type": "OBJECT",
@@ -188,34 +191,12 @@ async def delegate_to_claude(
     if not workdir.is_dir():
         return {"ok": False, "error": f"Directory does not exist: {workdir}"}
 
-    memory = ctx.get("memory")
-    job_id = memory.job_start(surface, task, str(workdir)) if memory else -1
+    log = ctx.get("log")
 
-    if not background:
-        ok, text = await _run_claude_with_escalation(cfg, task, workdir)
-        if memory:
-            memory.job_finish(job_id, ok, text)
-        return {"ok": ok, "job_id": job_id, ("result" if ok else "error"): text}
+    async def _runner() -> tuple[bool, str]:
+        return await _run_claude_with_escalation(cfg, task, workdir, log)
 
-    # Background: return immediately, announce the result when it lands.
-    async def _bg() -> None:
-        ok, text = await _run_claude_with_escalation(cfg, task, workdir)
-        if memory:
-            memory.job_finish(job_id, ok, text)
-        announce = ctx.get("announce")
-        if announce:
-            prefix = "Vazifa bajarildi" if ok else "Vazifa bajarilmadi"
-            await announce(f"{prefix}: {text}")
-
-    asyncio.create_task(_bg())
-    return {
-        "ok": True,
-        "job_id": job_id,
-        "result": (
-            "Vazifa fonda ishga tushirildi. Tugagach xabar beraman. "
-            "Tell the user you've started it and will report back."
-        ),
-    }
+    return await deliver(ctx, surface, task, str(workdir), background, _runner, backend="Claude")
 
 
 @registry.tool(

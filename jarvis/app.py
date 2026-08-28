@@ -61,6 +61,7 @@ class Jarvis:
                 "announce": self.announce,
                 "confirm": self.confirm,
                 "jarvis": self,
+                "log": self.log,
             }
         )
 
