@@ -28,7 +28,10 @@ class Log:
         body.append("Ovoz             ", style="dim")
         body.append(f"{cfg.get('tts.backend')} / {cfg.get('gemini.voice')}\n")
         body.append("Qo'llar          ", style="dim")
-        body.append(f"Claude Code ({cfg.get('claude.model')})\n")
+        hands = "Gemini agent (asosiy)"
+        if cfg.get("claude.enabled", True):
+            hands += f" + Claude Code ({cfg.get('claude.model')}, zaxira)"
+        body.append(f"{hands}\n")
         body.append("Avtonomiya       ", style="dim")
         body.append(
             autonomy,

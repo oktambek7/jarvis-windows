@@ -3,6 +3,7 @@
 # Side-effect imports: each module decorates its tools onto `registry`.
 from . import (
     delegate,  # noqa: F401,E402
+    gemini_agent,  # noqa: F401,E402
     recall,  # noqa: F401,E402
     system,  # noqa: F401,E402
 )

@@ -48,7 +48,7 @@ def _blames_search_tool(exc: Exception) -> bool:
     return "tool call context circulation" in text or ("quota" in text and "billing" in text)
 
 
-def agent_config(cfg, system_instruction: str | None = None):
+def agent_config(cfg, system_instruction: str | None = None, exclude_tools: set[str] | None = None):
     """Build the GenerateContentConfig used by every turn-based surface.
 
     Google Search and our own function declarations can only be sent together
@@ -56,15 +56,23 @@ def agent_config(cfg, system_instruction: str | None = None):
     the API returns 400. Getting this wrong means the CLI path silently loses
     the ability to look anything up, which is how the weather and
     exchange-rate questions failed.
+
+    `exclude_tools` drops named tools from the declarations sent to the model.
+    Used by delegate_to_gemini's own sub-loop so its agent can't call
+    delegate_to_gemini (or delegate_to_claude) on itself and recurse.
     """
     from google.genai import types
 
     from .tools import registry
 
+    declarations = registry.gemini_declarations()
+    if exclude_tools:
+        declarations = [d for d in declarations if d["name"] not in exclude_tools]
+
     tools = []
     if cfg.get("gemini.google_search", True):
         tools.append(types.Tool(google_search=types.GoogleSearch()))
-    tools.append(types.Tool(function_declarations=registry.gemini_declarations()))
+    tools.append(types.Tool(function_declarations=declarations))
 
     config = types.GenerateContentConfig(
         tools=tools,
