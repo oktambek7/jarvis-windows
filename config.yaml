@@ -69,16 +69,9 @@ gemini:
   # Voice used when tts.backend = "gemini".
   # Options: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr (and more —
   # any Gemini Live prebuilt voice name works here, this list is just the
-  # common ones).
-  #
-  # "Orus" is the deepest, calmest, most authoritative voice in the lineup —
-  # the closest fit to a film-JARVIS tone available without leaving Gemini's
-  # native audio (which is what keeps replies at ~0.5s with real barge-in).
-  # Jarvis still speaks Uzbek — see gemini.language_code below — a true
-  # English JARVIS clone would need a separate paid TTS backend and would
-  # give up streaming and interruption to get it. "Charon" (measured,
-  # informative) is the next-closest alternative if Orus feels too flat.
-  voice: "Orus"
+  # common ones). Back on "Charon" — the "Orus" experiment read as flat/odd
+  # in practice, so this reverts to the original, better-sounding default.
+  voice: "Charon"
 
   # --------------------------------------------------------
   #  Pin the speech language. This matters a lot for Uzbek.
