@@ -22,6 +22,7 @@ from google import genai
 from google.genai import types
 
 from .persona import build_system_prompt
+from .ui.bus import State, bus
 
 
 class LiveSession:
@@ -201,11 +202,13 @@ class LiveSession:
             else:
                 self.log.error(f"Live session error: {type(exc).__name__}: {exc}")
                 self.audit.note("voice", "live_session_error", error=str(exc))
+                bus.publish(State.ERROR, str(exc)[:120])
         finally:
             self._session = None
             self.audio.interrupt()
             self._flush_transcripts()
             self.log.session_close()
+            bus.publish(State.SLEEPING)
 
     async def announce(self, message: str) -> bool:
         """Have Jarvis say something unprompted (e.g. a background job landed).
@@ -301,6 +304,7 @@ class LiveSession:
             if getattr(content, "interrupted", False):
                 self.audio.interrupt()
                 self.log.interrupted()
+                bus.publish(State.LISTENING)
 
             if getattr(content, "input_transcription", None):
                 text = content.input_transcription.text or ""
@@ -319,6 +323,8 @@ class LiveSession:
                     # A single event can carry audio AND text — handle both,
                     # never elif, or you silently drop one of them.
                     if getattr(part, "inline_data", None) and part.inline_data.data:
+                        if bus.current.state != State.SPEAKING:
+                            bus.publish(State.SPEAKING)
                         self.audio.play(part.inline_data.data)
                     if getattr(part, "text", None):
                         self._model_buf.append(part.text)
@@ -336,6 +342,7 @@ class LiveSession:
         if spoken:
             self.log.assistant(spoken)
         self._flush_transcripts()
+        bus.publish(State.LISTENING)
 
     def _flush_transcripts(self) -> None:
         user_text = "".join(self._user_buf).strip()
@@ -352,6 +359,7 @@ class LiveSession:
         for fc in tool_call.function_calls:
             args = dict(fc.args or {})
             self.log.tool(fc.name, args)
+            bus.publish(State.TOOL, fc.name)
 
             result = await self.registry.invoke(fc.name, args, surface="voice")
             self.memory.add_turn(
@@ -361,6 +369,7 @@ class LiveSession:
                 types.FunctionResponse(id=fc.id, name=fc.name, response=result)
             )
 
+        bus.publish(State.LISTENING)
         if not responses:
             return
         try:

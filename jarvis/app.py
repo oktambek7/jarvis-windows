@@ -23,6 +23,7 @@ from .live import LiveSession
 from .memory import Memory
 from .reflect import Reflector
 from .tools import registry
+from .ui.bus import State, bus
 from .voice import build_tts
 
 
@@ -134,6 +135,7 @@ class Jarvis:
         wake_enabled = bool(self.cfg.get("wake.enabled", True)) and not os.getenv("JARVIS_NO_WAKE")
         if not wake_enabled:
             self.log.info("Uyg'otish so'zi o'chirilgan — to'g'ridan-to'g'ri suhbat.")
+            bus.publish(State.LISTENING)
             while True:
                 await self.session.converse()
                 await asyncio.sleep(0.2)
@@ -143,6 +145,7 @@ class Jarvis:
 
         while True:
             self.log.listening()
+            bus.publish(State.SLEEPING)
 
             while True:
                 chunk = await self.audio.mic_queue.get()
@@ -153,6 +156,7 @@ class Jarvis:
                     break
 
             self.log.wake()
+            bus.publish(State.LISTENING)
             if chime:
                 self.audio.chime()
                 await self.audio.wait_until_quiet(timeout=2.0)

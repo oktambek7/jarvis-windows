@@ -157,6 +157,19 @@ async def _doctor(config_path: Path | None) -> int:
     except ImportError:
         row("Bildirishnomalar", False, "pip install winotify", fatal=False)
 
+    # -- HUD overlay: optional, degrades to plain console if missing --
+    from .ui.runtime import overlay_available
+
+    wants_overlay = bool(cfg.get("ui.overlay.enabled", True))
+    row(
+        "HUD overlay",
+        overlay_available(),
+        "" if overlay_available()
+        else ("pip install -e .  (PySide6 + qasync yo'q)" if wants_overlay
+              else "ui.overlay.enabled: false — o'chirilgan"),
+        fatal=False,
+    )
+
     # -- telegram: optional, send_telegram_message --
     from .tools.telegram import credentials as telegram_credentials
     from .tools.telegram import session_path as telegram_session_path
@@ -337,16 +350,37 @@ def main(argv: list[str] | None = None) -> int:
     if args.text:
         return asyncio.run(_one_shot(args.config, args.text))
 
-    from .app import run
-
     if args.no_wake:
         os.environ["JARVIS_NO_WAKE"] = "1"
 
     try:
-        asyncio.run(run(args.config))
+        _run_with_optional_overlay(args.config)
     except KeyboardInterrupt:
         print("\nXayr!")
     return 0
+
+
+def _run_with_optional_overlay(config_path: Path | None) -> None:
+    """Start the voice daemon, with the HUD overlay if it's enabled and
+    installed. Falls back to the plain console daemon otherwise — a missing
+    or misbehaving GUI stack must never stop Jarvis from listening.
+    """
+    from .app import run
+    from .config import load_config
+
+    cfg = load_config(config_path)
+    if bool(cfg.get("ui.overlay.enabled", True)):
+        from .ui.runtime import overlay_available, run_with_overlay
+
+        if overlay_available():
+            run_with_overlay(cfg, lambda: run(config_path))
+            return
+        print(
+            "(HUD overlay uchun PySide6/qasync o'rnatilmagan — "
+            "`pip install -e .` qiling. Hozircha konsolda davom etaman.)"
+        )
+
+    asyncio.run(run(config_path))
 
 
 if __name__ == "__main__":

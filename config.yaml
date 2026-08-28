@@ -243,6 +243,25 @@ audio:
   echo_gate_multiplier: 2.5
   echo_gate_min_rms: 900
 
+# ---------------- Visual HUD ----------------
+# The "dynamic Jarvis interface": a small, frameless, always-on-top glowing
+# ring in a screen corner. Hidden while Jarvis sleeps, brightens the instant
+# the wake word fires, spins amber while a tool is running, pulses blue while
+# Jarvis speaks. Drag it anywhere with the mouse — it remembers where you put
+# it (data/ui_overlay_pos.json).
+#
+# Needs PySide6 + qasync (pip install -e . already pulls both in). If either
+# is missing, Jarvis logs one line and falls back to the plain console —
+# never fails to start over a missing GUI dependency.
+ui:
+  overlay:
+    enabled: true
+    # bottom-right | bottom-left | top-right | top-left. Only used the very
+    # first run — after that, wherever you last dragged it wins.
+    corner: "bottom-right"
+    size: 160    # pixels, square
+    margin: 40   # distance from the chosen screen corner, in pixels
+
 # ---------------- Storage ----------------
 storage:
   db: "data/jarvis.db"

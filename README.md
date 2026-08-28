@@ -84,6 +84,14 @@ The fastest way to confirm the setup is sound, before debugging any audio:
 If those work, the tool layer, the Uzbek persona and your API key are all fine
 and anything left is audio tuning.
 
+## The HUD
+
+Say "Hey Jarvis" and a small glowing ring appears in the corner of your
+screen — cyan while it's listening, amber while a tool is running, a pulsing
+equalizer while it speaks, fading out again once the conversation ends. It's
+optional (`ui.overlay.enabled` in `config.yaml`) and needs no setup beyond
+the normal `pip install -e .`. See [docs/GUIDE.md](docs/GUIDE.md#the-hud-overlay).
+
 ## Configuration
 
 Everything you'd want to change lives in **`config.yaml`**, including

@@ -24,9 +24,13 @@ jarvis/
 │   ├── agentwork.py  shared grace-period/background delivery for both of the above
 │   ├── telegram.py   send_telegram_message, via Telethon
 │   └── recall.py     memory tools
-└── voice/
-    ├── base.py     native (Gemini) speech output
-    └── aisha.py    optional Uzbek TTS
+├── voice/
+│   ├── base.py     native (Gemini) speech output
+│   └── aisha.py    optional Uzbek TTS
+└── ui/             the dynamic HUD overlay
+    ├── bus.py       state pub/sub (no GUI deps — always importable)
+    ├── overlay.py   the PySide6 widget itself
+    └── runtime.py   merges Qt's event loop into asyncio via qasync
 ```
 
 The daemon spends almost all its life in one cheap loop: read 80 ms of mic
@@ -209,6 +213,32 @@ winget install Gyan.FFmpeg
 ```
 
 Try `"gemini"` first. Only switch if the accent bothers you.
+
+## The HUD overlay
+
+A small frameless, always-on-top ring lives in a screen corner (bottom-right
+by default — drag it anywhere, it remembers where you leave it) and shows
+Jarvis's state at a glance:
+
+| State | Look |
+|---|---|
+| Asleep | Faded almost to nothing after ~2.5s of idling |
+| Awake (wake word fired) | A steady cyan ring, pulsing gently |
+| Running a tool | A rotating amber arc |
+| Speaking | A pulsing cyan ring of bars, like a compact equalizer |
+| Error | A brief red flash |
+
+It's driven by `jarvis/ui/bus.py`, a tiny state pub/sub that `app.py` and
+`live.py` publish into at the same points they already log to the terminal —
+sleeping/waking, tool calls, audio playback, turn completion, barge-in, and
+session errors. The overlay is just one subscriber; nothing about the voice
+loop depends on a HUD being attached.
+
+Turn it off with `ui.overlay.enabled: false` in `config.yaml`. It needs
+`PySide6` + `qasync` (both pulled in by `pip install -e .`); if either is
+missing, `--doctor` flags it and Jarvis falls back to the plain console
+daemon instead of failing to start — a missing GUI library should never cost
+you the ability to talk to Jarvis.
 
 ## Troubleshooting
 
