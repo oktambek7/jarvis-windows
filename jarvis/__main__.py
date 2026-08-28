@@ -31,6 +31,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--doctor", action="store_true", help="Check the setup and exit")
     parser.add_argument("--devices", action="store_true", help="List audio devices and exit")
     parser.add_argument("--no-wake", action="store_true", help="Skip the wake word; talk immediately")
+    parser.add_argument(
+        "--telegram-login",
+        action="store_true",
+        help="One-time interactive Telegram login (phone + code), then exit",
+    )
     return parser.parse_args(argv)
 
 
@@ -152,6 +157,18 @@ async def _doctor(config_path: Path | None) -> int:
     except ImportError:
         row("Bildirishnomalar", False, "pip install winotify", fatal=False)
 
+    # -- telegram: optional, send_telegram_message --
+    from .tools.telegram import credentials as telegram_credentials
+    from .tools.telegram import session_path as telegram_session_path
+
+    tg_creds = telegram_credentials(cfg)
+    if tg_creds is None:
+        row("Telegram", False, "ixtiyoriy — TELEGRAM_API_ID/HASH .env da yo'q", fatal=False)
+    elif not Path(telegram_session_path(cfg) + ".session").is_file():
+        row("Telegram", False, "kalitlar bor, lekin kirish qilinmagan — python -m jarvis --telegram-login", fatal=False)
+    else:
+        row("Telegram", True, "seans topildi", fatal=False)
+
     # -- claude cli: the hands --
     claude_bin = winplat.resolve_executable(str(cfg.get("claude.command", "claude")))
     row(
@@ -210,6 +227,42 @@ async def _doctor(config_path: Path | None) -> int:
     else:
         console.print("\n[red]Yuqoridagi XATO larni tuzating.[/red]")
     return 0 if ok else 1
+
+
+# --------------------------------------------------------------------- telegram login
+
+async def _telegram_login(config_path: Path | None) -> int:
+    """One-time interactive login: phone number, then the code Telegram
+    texts you. Telethon prompts for both with plain input() (and a 2FA
+    password via getpass if you have one enabled) and saves the resulting
+    session to disk, so this never has to run again outside of setup.
+    """
+    from rich.console import Console
+
+    from .config import load_config
+    from .tools.telegram import credentials, session_path
+
+    console = Console()
+    cfg = load_config(config_path)
+
+    creds = credentials(cfg)
+    if creds is None:
+        console.print(
+            "[red]TELEGRAM_API_ID / TELEGRAM_API_HASH .env faylida topilmadi.[/red]\n"
+            "Bepul olish: https://my.telegram.org/apps"
+        )
+        return 1
+
+    from telethon import TelegramClient
+
+    api_id, api_hash = creds
+    client = TelegramClient(session_path(cfg), api_id, api_hash)
+    console.print("[cyan]Telefon raqamingiz va Telegram yuborgan kodni kiriting...[/cyan]")
+    await client.start()  # prompts interactively for phone / code / 2FA password
+    me = await client.get_me()
+    console.print(f"[green]Kirish muvaffaqiyatli: {me.first_name} sifatida ulandingiz.[/green]")
+    await client.disconnect()
+    return 0
 
 
 # --------------------------------------------------------------------- text mode
@@ -277,6 +330,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.doctor:
         return asyncio.run(_doctor(args.config))
+
+    if args.telegram_login:
+        return asyncio.run(_telegram_login(args.config))
 
     if args.text:
         return asyncio.run(_one_shot(args.config, args.text))

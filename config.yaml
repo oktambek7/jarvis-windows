@@ -170,6 +170,17 @@ claude:
   # "~" resolves to C:\Users\<you>.
   default_cwd: "~"
 
+# ---------------- Telegram ----------------
+# Lets Jarvis send messages to your Telegram contacts by voice, as YOU (via
+# the MTProto user API, not a bot — a bot can't message someone who hasn't
+# started a chat with it first). Needs TELEGRAM_API_ID / TELEGRAM_API_HASH in
+# .env (free, from https://my.telegram.org/apps) and a one-time interactive
+# login: `python -m jarvis --telegram-login`. Hidden from Jarvis entirely
+# until both the credentials and a logged-in session exist.
+telegram:
+  # Where the logged-in session is saved (".session" is appended by Telethon).
+  session_path: "data/telegram"
+
 # ---------------- Audio plumbing ----------------
 audio:
   input_rate: 16000     # Gemini Live requires 16kHz PCM in

@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
     "rich>=13.9",
+    "telethon>=1.36",
     # --- Windows-only. Marked so the package still installs on Linux/macOS
     # for testing; the tools that need them report a clear error there.
     "mss>=9.0; sys_platform == 'win32'",

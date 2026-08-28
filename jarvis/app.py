@@ -76,7 +76,11 @@ class Jarvis:
         it burns a turn, confuses the model, and the user hears an apology
         instead of an answer.
         """
+        from pathlib import Path
+
         from .tools.delegate import claude_executable
+        from .tools.telegram import credentials as telegram_credentials
+        from .tools.telegram import session_path as telegram_session_path
 
         if not self.cfg.get("claude.enabled", True):
             registry.disable("delegate_to_claude", "check_jobs")
@@ -85,6 +89,15 @@ class Jarvis:
             self.log.warn(
                 "Claude Code CLI topilmadi — murakkab vazifalarni topshirib "
                 "bo'lmaydi. O'rnatish: npm install -g @anthropic-ai/claude-code"
+            )
+
+        if telegram_credentials(self.cfg) is None:
+            registry.disable("send_telegram_message")
+        elif not Path(telegram_session_path(self.cfg) + ".session").is_file():
+            registry.disable("send_telegram_message")
+            self.log.warn(
+                "Telegram seansi topilmadi — xabar yuborib bo'lmaydi. "
+                "Ishga tushiring: python -m jarvis --telegram-login"
             )
 
     # --------------------------------------------------------------- hooks
