@@ -67,8 +67,18 @@ gemini:
     - "gemini-2.5-flash"
 
   # Voice used when tts.backend = "gemini".
-  # Options: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr
-  voice: "Charon"
+  # Options: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr (and more —
+  # any Gemini Live prebuilt voice name works here, this list is just the
+  # common ones).
+  #
+  # "Orus" is the deepest, calmest, most authoritative voice in the lineup —
+  # the closest fit to a film-JARVIS tone available without leaving Gemini's
+  # native audio (which is what keeps replies at ~0.5s with real barge-in).
+  # Jarvis still speaks Uzbek — see gemini.language_code below — a true
+  # English JARVIS clone would need a separate paid TTS backend and would
+  # give up streaming and interruption to get it. "Charon" (measured,
+  # informative) is the next-closest alternative if Orus feels too flat.
+  voice: "Orus"
 
   # --------------------------------------------------------
   #  Pin the speech language. This matters a lot for Uzbek.
@@ -166,6 +176,13 @@ claude:
   # outright (non-zero exit, not a timeout), Jarvis automatically retries the
   # SAME task once on escalate_model before giving up — so you only pay the
   # Opus premium on the tasks that actually needed it, not on every call.
+  #
+  # Deliberately NOT Haiku here: delegate_to_claude is reserved for the hard
+  # cases (multi-file refactors, real reasoning) — Gemini's own agent
+  # (delegate_to_gemini) already handles the easy majority of delegated work
+  # for free, so what actually reaches Claude needs Sonnet-or-better
+  # capability. Dropping to Haiku here would trade real accuracy for a
+  # cost saving on exactly the tasks that can least afford it.
   model: "sonnet"
   escalate_model: "opus"
   # Max seconds to let a delegated task run before giving up.
