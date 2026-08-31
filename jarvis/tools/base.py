@@ -180,8 +180,13 @@ class ToolRegistry:
 
             elapsed = int((time.perf_counter() - started) * 1000)
             if audit:
-                audit.tool_end(surface, name, result.get("ok", True),
-                               result.get("result") or result.get("error"), None, elapsed)
+                # Log the tool's actual payload, not just a "result"/"error" key
+                # lookup — most tools return their data under their own key
+                # (stdout, entries, answer, opened, ...), so that lookup was
+                # writing null for nearly every successful call. audit.tool_end
+                # already str()-truncates, so passing the whole dict is safe.
+                payload = {k: v for k, v in result.items() if k != "ok"}
+                audit.tool_end(surface, name, result.get("ok", True), payload, None, elapsed)
             return result
 
         except asyncio.CancelledError:
