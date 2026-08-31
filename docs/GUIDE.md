@@ -136,6 +136,9 @@ It is covered by `tests/test_destructive.py`. If you add a pattern, add a test.
 
 Every tool call lands in `logs/audit.jsonl` regardless of autonomy — twice, once
 before it runs and once after, so a crash mid-command still leaves a trace.
+The "after" entry logs the tool's actual returned payload (truncated to 2000
+chars), so if Jarvis ever reports something wrong, this is where to check
+what data it was actually working from.
 
 ## Audio: echo, and why Jarvis interrupts itself
 
@@ -216,17 +219,25 @@ Try `"gemini"` first. Only switch if the accent bothers you.
 
 ## The HUD overlay
 
-A small frameless, always-on-top ring lives in a screen corner (bottom-right
-by default — drag it anywhere, it remembers where you leave it) and shows
-Jarvis's state at a glance:
+A small frameless, always-on-top widget lives in a screen corner
+(bottom-right by default — drag it anywhere, it remembers where you leave
+it). It's a small dim dot while asleep, and physically **grows** into a
+bigger, movie-style translucent glass panel the moment there's anything to
+show, then contracts back to the dot once the conversation ends. No text is
+ever drawn on it — it's a pure visual/motion indicator:
 
 | State | Look |
 |---|---|
-| Asleep | Faded almost to nothing after ~2.5s of idling |
-| Awake (wake word fired) | A steady cyan ring, pulsing gently |
-| Running a tool | A rotating amber arc |
-| Speaking | A pulsing cyan ring of bars, like a compact equalizer |
-| Error | A brief red flash |
+| Asleep | A small dim dot, faded almost to nothing after ~2.5s of idling |
+| Awake (wake word fired) | Grows into a wide glass panel: a steady cyan ring, pulsing gently |
+| Running a tool | Panel stays open: a rotating amber comet-trail arc |
+| Speaking | Panel stays open: a pulsing cyan ring of bars, like a compact equalizer |
+| Error | Panel stays open: a brief red flash |
+
+`config.yaml`'s `ui.overlay.size` is a base scale, not a fixed pixel size —
+idle is ~0.45x it, the active panel is ~1.7x wide by ~0.85x tall. Growth is
+centered on a fixed anchor point (wherever you last dropped it), clamped to
+stay on-screen, so a wide panel never runs off the edge it's docked against.
 
 It's driven by `jarvis/ui/bus.py`, a tiny state pub/sub that `app.py` and
 `live.py` publish into at the same points they already log to the terminal —
@@ -266,6 +277,12 @@ picked a different default device.
 `gemini.text_model_fallbacks` automatically. The Live socket does not — it is
 stateful, and silently reconnecting to a different model mid-conversation would
 drop the audio context, so there a failure surfaces to you instead.
+
+**`429 RESOURCE_EXHAUSTED` on a free-tier key.** Some models (e.g.
+`gemini-2.5-flash`) cap free-tier usage at a small number of requests **per
+day**, not per minute, so a busy session can exhaust it and every later call
+that reaches it fails outright. `gemini.text_model_fallbacks` deliberately does
+not include any such model by default — if you add one back in, expect this.
 
 ## Differences from the macOS original
 

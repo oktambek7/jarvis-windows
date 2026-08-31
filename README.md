@@ -86,9 +86,10 @@ and anything left is audio tuning.
 
 ## The HUD
 
-Say "Hey Jarvis" and a small glowing ring appears in the corner of your
-screen — cyan while it's listening, amber while a tool is running, a pulsing
-equalizer while it speaks, fading out again once the conversation ends. It's
+Say "Hey Jarvis" and a small dim dot in the corner of your screen grows into
+a bigger, movie-style glass panel — cyan while it's listening, amber while a
+tool is running, a pulsing equalizer while it speaks — then shrinks back to
+the dot once the conversation ends. Purely visual, no on-screen text. It's
 optional (`ui.overlay.enabled` in `config.yaml`) and needs no setup beyond
 the normal `pip install -e .`. See [docs/GUIDE.md](docs/GUIDE.md#the-hud-overlay).
 
