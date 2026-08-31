@@ -61,10 +61,18 @@ gemini:
 
   # Preview models return 503 under load. If the primary is busy, Jarvis walks
   # down this list rather than failing at you. Order matters: newest first.
+  #
+  # Deliberately NOT including gemini-2.5-flash here: on a free-tier key it
+  # has a 20-requests-PER-DAY cap (not per-minute), so it silently exhausts
+  # after light use and then every call that reaches it fails with a 429
+  # RESOURCE_EXHAUSTED buried at the bottom of the fallback chain — which is
+  # exactly what caused see_screen and other text/vision calls to hard-fail
+  # and cascade into slow, unreliable delegate_to_claude retries for basic
+  # tasks. Better to run out of fallbacks and fail with one clear error than
+  # to quietly hit that trap.
   text_model_fallbacks:
     - "gemini-3.6-flash"
     - "gemini-3.5-flash"
-    - "gemini-2.5-flash"
 
   # Voice used when tts.backend = "gemini".
   # Options: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr (and more —
