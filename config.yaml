@@ -23,9 +23,14 @@ agent:
   #              command CAN delete files. Everything is still
   #              written to logs/audit.jsonl.
   #
-  #  Shipped as "guarded" deliberately. run_shell is PowerShell
-  #  with your full user rights and speech recognition is not
-  #  perfect — spend a day on "guarded" before you flip it.
+  #  Currently shipped as "full". run_shell is PowerShell with your
+  #  full user rights and speech recognition is not perfect — a
+  #  misheard command CAN delete files with nothing standing in the
+  #  way except your own attention to what you actually said.
+  #  Every call is still written to logs/audit.jsonl either way, but
+  #  that's a record, not a safeguard. If you'd rather have destructive
+  #  commands ask first while you get a feel for it, set this to
+  #  "guarded" — spend a day there before flipping back to "full".
   #
   #  Flip this one word to change behaviour. Nothing else.
   # --------------------------------------------------------

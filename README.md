@@ -93,15 +93,18 @@ the normal `pip install -e .`. See [docs/GUIDE.md](docs/GUIDE.md#the-hud-overlay
 Everything you'd want to change lives in **`config.yaml`**, including
 `agent.autonomy`:
 
-- `"guarded"` (default) — reads, screenshots and app launches run instantly;
+- `"full"` (current default) — no confirmations, fastest, most Jarvis-like
+- `"guarded"` — reads, screenshots and app launches run instantly;
   destructive commands ask first
-- `"full"` — no confirmations, fastest, most Jarvis-like
 
 Every tool call is written to `logs/audit.jsonl` either way.
 
-> ⚠️ Jarvis runs PowerShell with your full user rights. On `autonomy: "full"` a
-> misheard command can delete files. This port ships `"guarded"` deliberately —
-> spend a day on it before you flip the switch.
+> ⚠️ Jarvis runs PowerShell with your full user rights, and speech recognition
+> isn't perfect. On `autonomy: "full"` (the current default) a misheard command
+> CAN delete files, with nothing standing in the way except your own attention
+> to what you actually said. If you want destructive commands to ask first
+> while you get a feel for it, set `autonomy: "guarded"` — spend a day there
+> before switching to `"full"`.
 
 ## More
 

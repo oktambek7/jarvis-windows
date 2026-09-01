@@ -120,10 +120,11 @@ model volunteers a `remember` call, which in practice it almost never does.
 
 `agent.autonomy` is the single most important line in `config.yaml`.
 
-- **`"guarded"`** (shipped default) — reads, screenshots and app launches run
-  instantly. Anything matching the destructive-command list speaks a
-  confirmation in Uzbek and waits for you to type `y` or `ha`.
-- **`"full"`** — everything runs immediately.
+- **`"full"`** (current default) — everything runs immediately, no
+  confirmations. A misheard voice command CAN run something destructive.
+- **`"guarded"`** — reads, screenshots and app launches run instantly.
+  Anything matching the destructive-command list speaks a confirmation in
+  Uzbek and waits for you to type `y` or `ha`.
 
 The destructive list lives in `jarvis/tools/base.py` and covers `Remove-Item`
 and its aliases, `format`, `diskpart`, `Stop-Computer`, `taskkill`,
@@ -320,5 +321,6 @@ Telethon (the MTProto *user* API): it logs in as the user via
 contacts or chat list, which a Bot API integration cannot do (a bot can only
 message a chat that started the conversation with it).
 
-**Changed default:** the original ships `autonomy: "full"`. This port ships
-`"guarded"`.
+**Default autonomy:** both the macOS original and this port currently ship
+`autonomy: "full"` — no confirmation before destructive commands. Set it to
+`"guarded"` in `config.yaml` if you'd rather have a spoken confirmation first.
