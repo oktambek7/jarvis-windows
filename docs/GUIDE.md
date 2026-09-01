@@ -18,7 +18,7 @@ jarvis/
 ├── config.py       config.yaml + .env loading
 ├── tools/
 │   ├── base.py       the registry + the destructive-command safety net
-│   ├── system.py     the 10 tools that touch Windows
+│   ├── system.py     the 11 tools that touch Windows
 │   ├── delegate.py   handing work to Claude Code (fallback hands)
 │   ├── gemini_agent.py  handing work to Jarvis's own Gemini agent (default hands)
 │   ├── agentwork.py  shared grace-period/background delivery for both of the above
