@@ -29,11 +29,6 @@ Gemini agent fails or you explicitly ask for Claude. The wake word runs
 locally, so no audio leaves your machine and nothing is billed until you
 actually say it.
 
-This is a Windows port of [mukhitdinov0107/ai_agent](https://github.com/mukhitdinov0107/ai_agent),
-which targets macOS. Same architecture, same Uzbek persona; the platform layer
-is rewritten around PowerShell. See [docs/GUIDE.md](docs/GUIDE.md) for what
-changed and why.
-
 ## Setup
 
 Requires **Windows 10/11** and **Python 3.11 or 3.12** (not 3.13 — openWakeWord
