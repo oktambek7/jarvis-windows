@@ -12,12 +12,16 @@ Jarvis: Batareyangiz 10 foiz qolgan, quvvatlagichga ulashni tavsiya qilaman.
 ```
 
 ```
-  mic ──► openWakeWord ──► Gemini Live ──┬──► ~19 tools ──► your PC
+  mic ──► openWakeWord ──► Gemini Live ──┬──► ~21 tools ──► your PC
         ("hey jarvis",     (WebSocket)   │      (incl. Telegram)
-         local, free)                    ├──► delegate_to_gemini ──► same tools, many steps
-                                          └──► delegate_to_claude  ──► Claude Code (fallback)
-                                                                          │
-                                  SQLite memory ◄────────────────────────┘
+         local, free)                    ├──► delegate_to_gemini       ──► same tools, many steps
+                                          ├──► delegate_to_claude       ──► Claude Code (fallback)
+                                          ├──► delegate_to_openclaw     ──► self-hosted OpenClaw (optional)
+                                          └──► delegate_to_custom_model ──► your own model (optional)
+                                                                            │
+  Telegram bot ──► text / voice notes ────────────────────────────────────┤
+        (your own bot, optional)                                          │
+                                  SQLite memory ◄──────────────────────────┘
 ```
 
 **Gemini Live** is the ears and mouth — one WebSocket, ~0.5 s round trip, native
@@ -28,6 +32,15 @@ private multi-turn loop — this spends your Gemini quota instead of Claude's.
 Gemini agent fails or you explicitly ask for Claude. The wake word runs
 locally, so no audio leaves your machine and nothing is billed until you
 actually say it.
+
+Two more hands are optional and hidden until set up: **`delegate_to_openclaw`**
+bridges to a separate self-hosted OpenClaw gateway ([docs/OPENCLAW.md](docs/OPENCLAW.md)),
+and **`delegate_to_custom_model`** is a "bring your own brain" slot for any
+OpenAI-compatible model/endpoint — both spend neither Gemini's nor Claude's
+quota. There's also a second way *in*: Jarvis's own **Telegram bot**
+(`telegram_bot.py`) takes text or voice notes from your phone and runs them
+through the same tools, so you're not limited to the microphone — see
+[docs/GUIDE.md](docs/GUIDE.md#telegram-bot-tasks-from-your-phone).
 
 ## Setup
 
@@ -111,5 +124,9 @@ Every tool call is written to `logs/audit.jsonl` either way.
 **[docs/GUIDE.md](docs/GUIDE.md)** — the full tool list, how memory works, echo and
 microphone tuning, the Aisha Uzbek voice, troubleshooting, code layout, and the
 full list of differences from the macOS original.
+
+**[docs/OPENCLAW.md](docs/OPENCLAW.md)** — bridging `delegate_to_openclaw` to a
+separately self-hosted OpenClaw gateway, for heavy tasks that shouldn't spend
+Gemini or Claude quota. Optional; hidden entirely if it isn't running.
 
 MIT licensed, like the project it is ported from.
