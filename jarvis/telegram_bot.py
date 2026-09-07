@@ -19,7 +19,11 @@ commands on the PC.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import time
+from pathlib import Path
+from typing import Any
 
 from . import genai_util
 from .tools.custom_brain import configured as custom_model_configured
@@ -58,6 +62,39 @@ def allow_from(cfg) -> set[int]:
 
 def session_path(cfg) -> str:
     return str(cfg.path("telegram_bot.session_path", "data/telegram_bot"))
+
+
+def status_path(cfg) -> Path:
+    return cfg.path("telegram_bot.status_path", "data/telegram_bot_status.json")
+
+
+def read_status(cfg) -> dict[str, Any] | None:
+    """Last known status, or None if the bot has never run on this machine."""
+    path = status_path(cfg)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _write_status(cfg, **fields: Any) -> None:
+    """Merge `fields` into the on-disk status so a viewer can tell — without
+    tailing logs or having a terminal to look at — whether the bot is
+    currently up, when it last saw a message, and what the last error was.
+    """
+    path = status_path(cfg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict[str, Any] = {}
+    if path.is_file():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+    data.update(fields)
+    data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def is_configured(cfg) -> bool:
@@ -122,6 +159,7 @@ async def start_bot(jarvis) -> None:
     @client.on(events.NewMessage(incoming=True))
     async def _on_message(event) -> None:  # noqa: ANN001 - Telethon event type
         if event.sender_id not in allowed:
+            jarvis.log.warn(f"Telegram bot: ruxsatsiz foydalanuvchidan xabar ({event.sender_id}) — e'tiborsiz qoldirildi.")
             return
 
         if event.voice or event.audio:
@@ -136,20 +174,31 @@ async def start_bot(jarvis) -> None:
             if not task:
                 return
 
+        jarvis.log.info(f"Telegram bot: {event.sender_id} dan vazifa qabul qilindi: {task[:200]!r}")
+        _write_status(cfg, last_message_at=time.strftime("%Y-%m-%dT%H:%M:%S%z"), last_chat_id=event.sender_id)
+
         jarvis.memory.add_turn("telegram", "user", task)
         jarvis.audit.note("telegram", "message_in", chat_id=event.sender_id)
         reply = await _run_task(jarvis, task, surface="telegram")
         jarvis.memory.add_turn("telegram", "assistant", reply)
         jarvis.audit.note("telegram", "message_out", chat_id=event.sender_id)
+        jarvis.log.info(f"Telegram bot: {event.sender_id} ga javob yuborildi: {reply[:200]!r}")
         await event.reply(reply[:4000] or "Vazifa bajarildi.")
 
     try:
+        _write_status(cfg, status="starting", error=None)
         await client.start(bot_token=token)
-        jarvis.log.info("Telegram bot ishga tushdi.")
+        me = await client.get_me()
+        started_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        _write_status(cfg, status="running", bot_username=me.username, started_at=started_at, error=None)
+        jarvis.log.info(f"Telegram bot ishga tushdi: @{me.username} (allow_from: {sorted(allowed)}).")
         await client.run_until_disconnected()
+        _write_status(cfg, status="stopped")
     except asyncio.CancelledError:
+        _write_status(cfg, status="stopped")
         raise
     except Exception as exc:  # noqa: BLE001 - a Telegram-side crash must not kill the voice loop
+        _write_status(cfg, status="error", error=str(exc))
         jarvis.log.warn(f"Telegram bot to'xtadi: {exc}")
     finally:
         await client.disconnect()

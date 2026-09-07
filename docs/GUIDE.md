@@ -4,7 +4,7 @@
 
 ```
 jarvis/
-├── __main__.py     CLI: --doctor, --text, --devices, --no-wake
+├── __main__.py     CLI: --doctor, --text, --devices, --no-wake, --bot-status
 ├── app.py          wiring + the wake-word loop
 ├── winplat.py      every Windows-specific quirk, in one place
 ├── audio.py        microphone in, speaker out, echo control, wake word
@@ -14,7 +14,7 @@ jarvis/
 ├── reflect.py      mines finished conversations for durable facts
 ├── genai_util.py   turn-based generation with model fallback, audio transcription
 ├── audit.py        append-only log of every tool call
-├── console.py      terminal output
+├── console.py      terminal output; also mirrors everything to logs/jarvis.log
 ├── config.py       config.yaml + .env loading
 ├── telegram_bot.py inbound Telegram bot — tasks from your phone, text or voice notes
 ├── tools/
@@ -141,6 +141,16 @@ commands on your PC, so an unconfigured allowlist must never default to
 "anyone who finds the bot can command it." If the bot crashes (a Telegram-side
 network issue, say), the voice loop keeps running regardless — see
 `telegram_bot.start_bot()`'s own exception handling.
+
+**Is it working?** `python -m jarvis --bot-status` prints the bot's current
+state (`starting` / `running` / `stopped` / `error`), its @username, when it
+started, and when it last heard from you — read from
+`telegram_bot.status_path` (`data/telegram_bot_status.json` by default),
+which `start_bot()` keeps current on every connect, message and
+disconnect/crash. For the full history rather than just the latest snapshot,
+`logs/jarvis.log` (rotated, plain text) has every `jarvis.log.*` call the bot
+makes — connect, each task received/replied, and any crash — independent of
+whether a terminal happened to be open to see it live.
 
 ### `run_shell` is the important one
 

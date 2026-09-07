@@ -1,14 +1,35 @@
-"""Terminal output. Jarvis is a voice agent, but you still want to watch it think."""
+"""Terminal output. Jarvis is a voice agent, but you still want to watch it think.
+
+Everything meaningful also goes to logs/jarvis.log (plain text, rotated), so
+you can tell what Jarvis — and background pieces like the Telegram bot, which
+have no terminal of their own to watch — actually did after the fact, not
+just while you happened to be looking at the console.
+"""
 
 from __future__ import annotations
 
+import logging
 import time
+from logging.handlers import RotatingFileHandler
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
+from .config import ROOT
+from .voice.base import resolve_voice_name
+
 _c = Console()
+
+_file_log = logging.getLogger("jarvis.file")
+_file_log.setLevel(logging.INFO)
+_file_log.propagate = False
+if not _file_log.handlers:
+    _log_path = ROOT / "logs" / "jarvis.log"
+    _log_path.parent.mkdir(parents=True, exist_ok=True)
+    _handler = RotatingFileHandler(_log_path, maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(message)s"))
+    _file_log.addHandler(_handler)
 
 
 class Log:
@@ -26,7 +47,10 @@ class Log:
         body.append("Model            ", style="dim")
         body.append(f"{cfg.get('gemini.model')}\n")
         body.append("Ovoz             ", style="dim")
-        body.append(f"{cfg.get('tts.backend')} / {cfg.get('gemini.voice')}\n")
+        voice_label = resolve_voice_name(cfg)
+        if not cfg.get("gemini.voice"):
+            voice_label += f" ({str(cfg.get('gemini.voice_gender', 'male')).lower()})"
+        body.append(f"{cfg.get('tts.backend')} / {voice_label}\n")
         body.append("Qo'llar          ", style="dim")
         hands = "Gemini agent (asosiy)"
         if cfg.get("claude.enabled", True):
@@ -62,20 +86,29 @@ class Log:
             _c.print(f"[cyan]siz:[/cyan] {text}", highlight=False)
 
     def assistant(self, text: str) -> None:
+        # File write first: a console encoding hiccup (Windows legacy code
+        # pages choke on some Uzbek/emoji characters) must never cost you the
+        # log entry, since the file is the only record once the terminal
+        # scrolls away or isn't there at all (the Telegram bot has none).
+        _file_log.info(f"jarvis: {text}")
         _c.print(f"[bold magenta]jarvis:[/bold magenta] {text}", highlight=False)
 
     def tool(self, name: str, args: dict) -> None:
         preview = ", ".join(f"{k}={str(v)[:60]}" for k, v in list(args.items())[:3])
+        _file_log.info(f"tool: {name}({preview})")
         _c.print(f"[yellow]⚙  {name}[/yellow][dim]({preview})[/dim]", highlight=False)
 
     def interrupted(self) -> None:
         _c.print("[dim]⏸  to'xtatildi[/dim]")
 
     def info(self, msg: str) -> None:
+        _file_log.info(msg)
         _c.print(f"[dim]{msg}[/dim]")
 
     def warn(self, msg: str) -> None:
+        _file_log.warning(msg)
         _c.print(f"[yellow]⚠  {msg}[/yellow]")
 
     def error(self, msg: str) -> None:
+        _file_log.error(msg)
         _c.print(f"[red]✖  {msg}[/red]")

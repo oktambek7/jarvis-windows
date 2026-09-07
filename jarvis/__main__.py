@@ -5,6 +5,7 @@
   jarvis --doctor             check the setup before you trust it with your PC
   jarvis --devices            list audio devices, to pin one in config.yaml
   jarvis --no-wake            skip the wake word; talk immediately
+  jarvis --bot-status         is the Telegram bot up? when did it last hear from you?
 """
 
 from __future__ import annotations
@@ -35,6 +36,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--telegram-login",
         action="store_true",
         help="One-time interactive Telegram login (phone + code), then exit",
+    )
+    parser.add_argument(
+        "--bot-status",
+        action="store_true",
+        help="Show whether the Telegram bot is running and when it last heard from you",
     )
     return parser.parse_args(argv)
 
@@ -320,6 +326,48 @@ async def _telegram_login(config_path: Path | None) -> int:
     return 0
 
 
+# --------------------------------------------------------------------- bot status
+
+async def _bot_status(config_path: Path | None) -> int:
+    """Read telegram_bot.py's on-disk status file and print it — a quick way
+    to tell whether the bot is (or was last) actually running, without
+    tailing logs/jarvis.log or having a terminal open on the running daemon.
+    """
+    from rich.console import Console
+
+    from . import telegram_bot
+    from .config import load_config
+
+    console = Console()
+    cfg = load_config(config_path)
+
+    if not telegram_bot.is_configured(cfg):
+        warning = telegram_bot.startup_warning(cfg)
+        console.print(f"[yellow]Telegram bot sozlanmagan.[/yellow] {warning or ''}")
+        return 1
+
+    status = telegram_bot.read_status(cfg)
+    if status is None:
+        console.print("[yellow]Telegram bot hali birror marta ishga tushirilmagan.[/yellow]")
+        return 1
+
+    state = status.get("status", "noma'lum")
+    color = {"running": "green", "starting": "cyan", "stopped": "yellow", "error": "red"}.get(state, "white")
+    console.print(f"Holat:          [{color}]{state}[/{color}]")
+    if status.get("bot_username"):
+        console.print(f"Bot:            @{status['bot_username']}")
+    if status.get("started_at"):
+        console.print(f"Ishga tushdi:   {status['started_at']}")
+    if status.get("last_message_at"):
+        console.print(f"Oxirgi xabar:   {status['last_message_at']} (chat {status.get('last_chat_id')})")
+    else:
+        console.print("Oxirgi xabar:   hali yo'q")
+    if status.get("error"):
+        console.print(f"[red]Oxirgi xato:    {status['error']}[/red]")
+    console.print(f"[dim](fayl yangilandi: {status.get('updated_at', '?')})[/dim]")
+    return 0 if state == "running" else 1
+
+
 # --------------------------------------------------------------------- text mode
 
 async def _one_shot(config_path: Path | None, text: str) -> int:
@@ -388,6 +436,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.telegram_login:
         return asyncio.run(_telegram_login(args.config))
+
+    if args.bot_status:
+        return asyncio.run(_bot_status(args.config))
 
     if args.text:
         return asyncio.run(_one_shot(args.config, args.text))

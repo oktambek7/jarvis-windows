@@ -245,6 +245,11 @@ telegram_bot:
   brain: "gemini"
   max_steps: 20
   session_path: "data/telegram_bot"
+  # Where the bot keeps its own "is it working" status (running/stopped/
+  # error, bot username, last message time) — check it with
+  # `python -m jarvis --bot-status`, or read logs/jarvis.log for the
+  # full history.
+  status_path: "data/telegram_bot_status.json"
 
 # ---------------- Custom model (bring your own brain) ----------------
 # A pluggable slot for any OpenAI-compatible chat-completions endpoint (with
