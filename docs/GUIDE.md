@@ -21,6 +21,7 @@ jarvis/
 │   ├── system.py     the 11 tools that touch Windows
 │   ├── delegate.py   handing work to Claude Code (fallback hands)
 │   ├── gemini_agent.py  handing work to Jarvis's own Gemini agent (default hands)
+│   ├── openclaw.py   handing work to a self-hosted OpenClaw gateway (docs/OPENCLAW.md)
 │   ├── custom_brain.py  handing work to a pluggable OpenAI-compatible model ("bring your own brain")
 │   ├── agentwork.py  shared grace-period/background delivery for both of the above
 │   ├── telegram.py   send_telegram_message, via Telethon
@@ -53,9 +54,11 @@ also why you are not billed for sitting in silence.
 
 **Delegation** — `delegate_to_gemini` (default hands, spends Gemini quota),
 `delegate_to_claude` (fallback hands, spends Claude quota),
-`delegate_to_custom_model` (hands for a pluggable OpenAI-compatible model you
-configure yourself — hidden until `custom_model.base_url`/`model` and its API
-key are all set), `check_jobs`
+`delegate_to_openclaw` (hands for OpenClaw's own skills/model, spends
+neither — hidden until the OpenClaw container is running, see
+[docs/OPENCLAW.md](OPENCLAW.md)), `delegate_to_custom_model` (hands for a
+pluggable OpenAI-compatible model you configure yourself — hidden until
+`custom_model.base_url`/`model` and its API key are all set), `check_jobs`
 
 ### Delegation: grace period, then background
 
@@ -79,6 +82,18 @@ can't recurse into delegating to itself. This is what the `--text` CLI mode
 was already doing in an 8-step loop; `delegate_to_gemini` is that same
 pattern exposed to the voice session with a higher step budget, since it now
 also carries tasks that used to go straight to Claude.
+
+### `delegate_to_openclaw`
+
+Runs a task through a *separate* self-hosted agent (OpenClaw), not through
+Jarvis's own tool loop. Set up and configured independently of Jarvis — see
+[docs/OPENCLAW.md](OPENCLAW.md) for what it is and how to run it — this tool
+is just a thin bridge: it shells out to `docker exec <container> node
+/app/dist/index.js agent --agent main --message "<task>"` and reports back
+whatever OpenClaw's agent replies. Reach for it when the user explicitly asks
+for OpenClaw, or wants one of the things OpenClaw is set up to do that Jarvis
+isn't (Google Workspace automation, browser automation, its own Telegram
+bot's skills) — otherwise `delegate_to_gemini` remains the default.
 
 ### `delegate_to_custom_model`
 

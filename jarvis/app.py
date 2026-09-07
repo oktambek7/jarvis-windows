@@ -81,6 +81,7 @@ class Jarvis:
 
         from .tools.custom_brain import configured as custom_model_configured
         from .tools.delegate import claude_executable
+        from .tools.openclaw import container_running as openclaw_container_running
         from .tools.telegram import credentials as telegram_credentials
         from .tools.telegram import session_path as telegram_session_path
 
@@ -91,6 +92,15 @@ class Jarvis:
             self.log.warn(
                 "Claude Code CLI topilmadi — murakkab vazifalarni topshirib "
                 "bo'lmaydi. O'rnatish: npm install -g @anthropic-ai/claude-code"
+            )
+
+        if not self.cfg.get("openclaw.enabled", True):
+            registry.disable("delegate_to_openclaw")
+        elif not openclaw_container_running(self.cfg):
+            registry.disable("delegate_to_openclaw")
+            self.log.warn(
+                "OpenClaw konteyneri ishlamayapti — vazifalarni unga "
+                "topshirib bo'lmaydi. docker compose --profile mtproto up -d"
             )
 
         if not custom_model_configured(self.cfg):

@@ -197,6 +197,23 @@ claude:
   # to C:\Users\<you>.
   default_cwd: "~"
 
+# ---------------- OpenClaw (self-hosted brain, spends neither Gemini nor Claude quota) ----------------
+# A separately-running OpenClaw deployment (Docker) with its own Telegram bot,
+# skills, and a custom non-Gemini/Claude model. delegate_to_openclaw hands it
+# substantial tasks the same way delegate_to_gemini/delegate_to_claude do,
+# through its own `openclaw agent` CLI run inside the gateway container.
+# Set up separately — see docs/OPENCLAW.md. Hidden entirely if `docker` isn't
+# on PATH or the container isn't running.
+openclaw:
+  enabled: true
+  # Container running the OpenClaw gateway (docker-compose service
+  # `openclaw-gateway`, named `<project>-openclaw-gateway-1` by default).
+  container: "workshop-openclaw-gateway-1"
+  # Which OpenClaw agent id to talk to (config/openclaw.json -> agents.list).
+  agent_id: "main"
+  # Max seconds to let a delegated task run before giving up.
+  timeout: 300
+
 # ---------------- Telegram ----------------
 # Lets Jarvis send messages to your Telegram contacts by voice, as YOU (via
 # the MTProto user API, not a bot — a bot can't message someone who hasn't

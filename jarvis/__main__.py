@@ -204,6 +204,23 @@ async def _doctor(config_path: Path | None) -> int:
         fatal=False,
     )
 
+    # -- openclaw: the self-hosted second brain (docs/OPENCLAW.md) --
+    from .tools.openclaw import container_name as openclaw_container_name
+    from .tools.openclaw import container_running as openclaw_container_running
+    from .tools.openclaw import docker_executable
+
+    if docker_executable() is None:
+        row("OpenClaw", False, "ixtiyoriy — Docker topilmadi", fatal=False)
+    elif not openclaw_container_running(cfg):
+        row(
+            "OpenClaw",
+            False,
+            f"ixtiyoriy — konteyner ishlamayapti ({openclaw_container_name(cfg)})",
+            fatal=False,
+        )
+    else:
+        row("OpenClaw", True, openclaw_container_name(cfg), fatal=False)
+
     # -- ffmpeg (only needed for the Aisha Uzbek voice) --
     ffmpeg = shutil.which("ffmpeg")
     needs_ffmpeg = str(cfg.get("tts.backend", "gemini")).lower() == "aisha"
