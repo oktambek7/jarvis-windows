@@ -28,6 +28,7 @@ from typing import Any
 from . import genai_util
 from .tools.custom_brain import configured as custom_model_configured
 from .tools.custom_brain import run_custom_agent
+from .tools.delegate import claude_executable, run_claude_with_escalation
 from .tools.gemini_agent import run_gemini_agent
 from .tools.telegram import credentials
 
@@ -138,6 +139,15 @@ async def _run_task(jarvis, task: str, surface: str) -> str:
             max_steps=max_steps,
             surface=surface,
         )
+        # Gemini agent failed outright (e.g. daily quota exhausted on every
+        # configured model) — fall back to Claude Code rather than leaving
+        # the Telegram bot silently unable to do anything, same as the
+        # Gemini-then-Claude order the voice loop's delegate tools use.
+        if not ok and cfg.get("claude.enabled", True) and claude_executable(cfg) is not None:
+            jarvis.log.warn(f"Gemini agent xato qaytardi ({text[:200]!r}) — Claude Code bilan qayta urinildi.")
+            workdir = Path(os.path.expandvars(cwd)).expanduser()
+            if workdir.is_dir():
+                ok, text = await run_claude_with_escalation(cfg, task, workdir, jarvis.log)
     return text if ok else f"Xato: {text}"
 
 

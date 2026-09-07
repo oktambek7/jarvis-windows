@@ -108,7 +108,7 @@ async def _run_claude(cfg, task: str, cwd: Path, model: str) -> tuple[bool, str,
     return True, _extract_text(out.decode("utf-8", "replace")), False
 
 
-async def _run_claude_with_escalation(cfg, task: str, cwd: Path, log=None) -> tuple[bool, str]:
+async def run_claude_with_escalation(cfg, task: str, cwd: Path, log=None) -> tuple[bool, str]:
     """Try the cheap model first; only pay for the expensive one if the cheap
     run actually failed (crash, non-zero exit) — not merely timed out.
 
@@ -194,7 +194,7 @@ async def delegate_to_claude(
     log = ctx.get("log")
 
     async def _runner() -> tuple[bool, str]:
-        return await _run_claude_with_escalation(cfg, task, workdir, log)
+        return await run_claude_with_escalation(cfg, task, workdir, log)
 
     return await deliver(ctx, surface, task, str(workdir), background, _runner, backend="Claude")
 
