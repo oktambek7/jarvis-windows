@@ -296,25 +296,34 @@ Try `"gemini"` first. Only switch if the accent bothers you.
 
 ## The HUD overlay
 
-A small frameless, always-on-top widget lives in a screen corner
-(bottom-right by default — drag it anywhere, it remembers where you leave
-it). It's a small dim dot while asleep, and physically **grows** into a
-bigger, movie-style translucent glass panel the moment there's anything to
-show, then contracts back to the dot once the conversation ends. No text is
-ever drawn on it — it's a pure visual/motion indicator:
+A frameless, always-on-top holographic panel — dark glass, a glowing
+arc-reactor ring, a slowly sweeping radar-tick bezel and small
+targeting-bracket corners, styled after the movie interface. By default
+(`ui.overlay.position: "center"`) it opens front-and-center on the primary
+screen the moment Jarvis starts, like a real app window rather than a
+hidden tray icon; set `position` to a screen corner instead for a smaller,
+out-of-the-way HUD. Either way it's draggable — it remembers wherever you
+leave it (`data/ui_overlay_pos.json`).
+
+It's a smaller idle ring while asleep, and physically **grows** into the
+full glass panel the moment there's anything to show, then eases back down
+once the conversation ends. No text is ever drawn on it — it's a pure
+visual/motion indicator:
 
 | State | Look |
 |---|---|
-| Asleep | A small dim dot, faded almost to nothing after ~2.5s of idling |
-| Awake (wake word fired) | Grows into a wide glass panel: a steady cyan ring, pulsing gently |
+| Asleep | A dim slate-blue ring, fading toward ~0.4 opacity after ~2.5s of idling |
+| Awake (wake word fired) | Grows into the full panel: a steady cyan ring, radar bezel sweeping behind it |
 | Running a tool | Panel stays open: a rotating amber comet-trail arc |
-| Speaking | Panel stays open: a pulsing cyan ring of bars, like a compact equalizer |
-| Error | Panel stays open: a brief red flash |
+| Speaking | Panel stays open: a big pulsing cyan equalizer burst around a glossy core |
+| Error | Panel stays open: a red ring and bezel |
 
 `config.yaml`'s `ui.overlay.size` is a base scale, not a fixed pixel size —
-idle is ~0.45x it, the active panel is ~1.7x wide by ~0.85x tall. Growth is
-centered on a fixed anchor point (wherever you last dropped it), clamped to
-stay on-screen, so a wide panel never runs off the edge it's docked against.
+idle is ~0.55x it (a visible ring, not a hidden dot), the active panel is
+~1.9x wide by ~1x tall (room for a real equalizer). Growth is centered on a
+fixed anchor point (screen center, a corner, or wherever you last dragged
+it), clamped to stay on-screen, so a wide panel never runs off the edge it's
+docked against.
 
 It's driven by `jarvis/ui/bus.py`, a tiny state pub/sub that `app.py` and
 `live.py` publish into at the same points they already log to the terminal —

@@ -1,19 +1,22 @@
-"""The HUD itself — a small frameless, always-on-top widget that lives in a
-screen corner and animates with Jarvis's state (asleep / listening / working
-/ speaking).
+"""The HUD itself — Jarvis's on-screen presence: a frameless, always-on-top
+holographic panel that animates with Jarvis's state (asleep / listening /
+working / speaking).
 
-Deliberately NOT a full window: no taskbar entry, no border, no focus. It
-exists purely as ambient feedback for something you already triggered with
-your voice — you should never have to click it to use Jarvis.
+Styled after the movie interface it's named for: deep-space glass, an
+electric-cyan arc-reactor ring, a slowly sweeping radar bezel and small
+targeting-bracket corners. Deliberately still NOT a bordered OS window (no
+title bar, no taskbar entry, no focus) — it exists purely as a visual
+presence you never have to click, but by default it opens big and centered,
+like a real app window, rather than hiding in a corner.
 
 Three things make this read as "alive" rather than a static icon that swaps
-color: state transitions LERP (color, radius, glow, and now SIZE) over a few
+color: state transitions LERP (color, radius, glow, and SIZE) over a few
 hundred ms instead of snapping; it never goes fully inert — even asleep it
-has a slow breathing pulse instead of sitting as a dead dot; and it physically
-grows from a small idle dot into a larger translucent "glass panel" the
-moment there's anything to show, holding a bigger, richer visualization
-inside, then contracts back to the dot once the conversation ends. No text is
-ever rendered on it — it stays a pure visual/motion indicator.
+has a slow breathing pulse and a idle ring instead of sitting as a dead dot;
+and it physically grows from a smaller idle ring into a bigger, richer glass
+panel the moment there's anything to show, holding a full visualization
+inside, then eases back once the conversation ends. No text is ever rendered
+on it — it stays a pure visual/motion indicator.
 """
 
 from __future__ import annotations
@@ -23,18 +26,25 @@ import math
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, Qt, QTimer
-from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QRadialGradient
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer
+from PySide6.QtGui import (
+    QColor,
+    QGuiApplication,
+    QLinearGradient,
+    QPainter,
+    QPen,
+    QRadialGradient,
+)
 from PySide6.QtWidgets import QWidget
 
 from .bus import Event, State, bus
 
 _COLORS: dict[State, QColor] = {
-    State.SLEEPING: QColor(80, 130, 190),
+    State.SLEEPING: QColor(64, 110, 168),
     State.LISTENING: QColor(0, 210, 255),
-    State.TOOL: QColor(255, 176, 46),
-    State.SPEAKING: QColor(70, 205, 255),
-    State.ERROR: QColor(255, 80, 80),
+    State.TOOL: QColor(255, 168, 44),
+    State.SPEAKING: QColor(94, 226, 255),
+    State.ERROR: QColor(255, 82, 96),
 }
 
 # Target "energy" per state — drives glow strength, ring radius and how fast
@@ -79,15 +89,14 @@ class Overlay(QWidget):
     def __init__(self, cfg) -> None:
         super().__init__()
         self._cfg = cfg
-        # `ui.overlay.size` is now a base scale, not a fixed pixel size: idle
-        # is roughly half of it (a small dot), the active panel is roughly
-        # 1.7x wider and slightly shorter than it (a wide glass panel) — see
-        # _target_size(). Bumped default 160 -> 200 so "bigger" actually
-        # reads as bigger at both ends of that range.
-        base = int(cfg.get("ui.overlay.size", 200))
-        self._idle_size = max(40, int(base * 0.45))
-        self._panel_w = int(base * 1.7)
-        self._panel_h = int(base * 0.85)
+        # `ui.overlay.size` is a base scale, not a fixed pixel size: idle is
+        # roughly half of it (a small ring, not a hidden dot), the active
+        # panel is roughly 1.9x wider and about as tall (a big glass panel
+        # with room for a real equalizer inside).
+        base = int(cfg.get("ui.overlay.size", 380))
+        self._idle_size = max(60, int(base * 0.55))
+        self._panel_w = int(base * 1.9)
+        self._panel_h = int(base * 1.0)
         self._pos_file = Path(cfg.path("storage.db", "data/jarvis.db")).parent / "ui_overlay_pos.json"
 
         self.setWindowFlags(
@@ -132,13 +141,16 @@ class Overlay(QWidget):
         else:
             screen = QGuiApplication.primaryScreen()
             geo = screen.availableGeometry() if screen else None
-            margin = int(self._cfg.get("ui.overlay.margin", 40))
-            corner = str(self._cfg.get("ui.overlay.corner", "bottom-right")).lower()
-            half = self._idle_size // 2
+            position = str(self._cfg.get("ui.overlay.position", "center")).lower()
 
             if geo is None:
-                self._anchor = QPoint(100 + half, 100 + half)
+                self._anchor = QPoint(100 + self._idle_size // 2, 100 + self._idle_size // 2)
+            elif position == "center":
+                self._anchor = geo.center()
             else:
+                margin = int(self._cfg.get("ui.overlay.margin", 40))
+                corner = str(self._cfg.get("ui.overlay.corner", "bottom-right")).lower()
+                half = self._idle_size // 2
                 x = geo.right() - half - margin if "right" in corner else geo.left() + half + margin
                 y = geo.bottom() - half - margin if "bottom" in corner else geo.top() + half + margin
                 self._anchor = QPoint(x, y)
@@ -211,12 +223,12 @@ class Overlay(QWidget):
         if self._state == State.SLEEPING:
             idle_for = time.monotonic() - self._state_since
             settle = min(idle_for / 3.0, 1.0)
-            return _lerp(1.0, 0.35, settle)
+            return _lerp(1.0, 0.4, settle)
         return 1.0
 
     def _target_size(self) -> tuple[float, float]:
-        # Idle stays a small dot; every active state grows into the same
-        # wide glass panel so the transition always reads as "waking up"
+        # Idle stays a smaller ring; every active state grows into the same
+        # big glass panel so the transition always reads as "waking up"
         # regardless of which state triggered it.
         if self._state == State.SLEEPING:
             return float(self._idle_size), float(self._idle_size)
@@ -265,19 +277,23 @@ class Overlay(QWidget):
         scale = min(width, height)
 
         span = self._panel_w - self._idle_size
-        panel_amount = 0.0 if span <= 0 else max(0.0, min(1.0, (width - self._idle_size) / span))
-        self._paint_panel_bg(painter, panel_amount)
+        amount = 0.0 if span <= 0 else max(0.0, min(1.0, (width - self._idle_size) / span))
+        self._paint_panel_bg(painter, amount)
 
         # Soft glow behind everything else, sized and brightened by energy.
-        glow_radius = scale * (0.32 + 0.14 * self._energy)
-        glow = QRadialGradient(center, glow_radius)
+        glow_radius = scale * (0.34 + 0.15 * self._energy)
+        glow = QRadialGradient(QPointF(center), glow_radius)
         glow_color = QColor(self._color)
-        glow_color.setAlpha(int(40 + 55 * self._energy + 15 * breath))
+        glow_color.setAlpha(int(45 + 60 * self._energy + 15 * breath))
         glow.setColorAt(0.0, glow_color)
         glow.setColorAt(1.0, QColor(self._color.red(), self._color.green(), self._color.blue(), 0))
         painter.setPen(Qt.NoPen)
         painter.setBrush(glow)
         painter.drawEllipse(center, glow_radius, glow_radius)
+
+        # The rotating radar-sweep tick bezel sits behind the state visual,
+        # and only fades in once the panel has room to show it.
+        self._paint_tick_ring(painter, center, scale, amount)
 
         if self._state == State.SPEAKING:
             self._paint_speaking(painter, center, scale)
@@ -286,28 +302,101 @@ class Overlay(QWidget):
         else:
             self._paint_ring(painter, center, breath, scale)
 
+        self._paint_corner_brackets(painter, amount)
+
     def _paint_panel_bg(self, painter: QPainter, amount: float) -> None:
         """A translucent rounded "glass" backdrop, faded in as the HUD grows
-        from the idle dot into the active panel — invisible at rest, fully
+        from the idle ring into the active panel — invisible at rest, fully
         present once expanded, never sharp or window-like.
         """
         if amount <= 0.01:
             return
 
         rect = self.rect().adjusted(1, 1, -1, -1)
-        radius = min(rect.height() / 2, 36)
+        radius = min(rect.height() / 2, 34)
 
-        fill = QColor(10, 16, 26)
-        fill.setAlphaF(0.5 * amount)
+        # A subtle top-to-bottom gradient reads as glass/depth rather than a
+        # flat fill — slightly lighter near the top, darker toward the base.
+        fill = QLinearGradient(QPointF(rect.topLeft()), QPointF(rect.bottomLeft()))
+        top = QColor(16, 24, 38)
+        bottom = QColor(6, 10, 18)
+        top.setAlphaF(0.55 * amount)
+        bottom.setAlphaF(0.62 * amount)
+        fill.setColorAt(0.0, top)
+        fill.setColorAt(1.0, bottom)
         painter.setPen(Qt.NoPen)
         painter.setBrush(fill)
         painter.drawRoundedRect(rect, radius, radius)
 
-        border = QColor(self._color)
-        border.setAlphaF(0.6 * amount)
-        painter.setPen(QPen(border, 1.4))
+        # Soft outer glow border, then a crisp inner hairline — the "glass
+        # edge lit from inside" look instead of a single flat outline.
+        outer = QColor(self._color)
+        outer.setAlphaF(0.28 * amount)
+        painter.setPen(QPen(outer, 3.5))
         painter.setBrush(Qt.NoBrush)
         painter.drawRoundedRect(rect, radius, radius)
+
+        inner = QColor(self._color)
+        inner.setAlphaF(0.75 * amount)
+        painter.setPen(QPen(inner, 1.1))
+        painter.drawRoundedRect(rect, radius, radius)
+
+    def _paint_corner_brackets(self, painter: QPainter, amount: float) -> None:
+        """Small L-shaped targeting-reticle accents at the panel corners —
+        the clearest "HUD" cue, and cheap to draw. Fades in with the panel.
+        """
+        if amount <= 0.05:
+            return
+
+        rect = self.rect().adjusted(10, 10, -10, -10)
+        if rect.width() < 40 or rect.height() < 40:
+            return
+
+        arm = min(22.0, rect.width() * 0.08, rect.height() * 0.16)
+        color = QColor(self._color)
+        color.setAlphaF(0.85 * amount)
+        painter.setPen(_round_pen(color, 2.2))
+
+        corners = (
+            (rect.topLeft(), (1, 0), (0, 1)),
+            (rect.topRight(), (-1, 0), (0, 1)),
+            (rect.bottomLeft(), (1, 0), (0, -1)),
+            (rect.bottomRight(), (-1, 0), (0, -1)),
+        )
+        for pt, dx, dy in corners:
+            painter.drawLine(pt, pt + QPoint(int(arm * dx[0]), int(arm * dx[1])))
+            painter.drawLine(pt, pt + QPoint(int(arm * dy[0]), int(arm * dy[1])))
+
+    def _paint_tick_ring(self, painter: QPainter, center, scale: float, amount: float) -> None:
+        """A ring of short radar-style tick marks with a brightness sweep
+        that rotates with `_spin`, behind the main state visual. This is
+        what makes the panel read as a live instrument rather than a plain
+        glowing circle.
+        """
+        if amount <= 0.05:
+            return
+
+        ticks = 48
+        radius = scale * 0.44
+        tick_len = scale * 0.025
+        sweep = self._spin % (2 * math.pi)
+
+        for i in range(ticks):
+            angle = (2 * math.pi / ticks) * i
+            # Distance (in radians) from the current sweep angle, wrapped to
+            # [0, pi] — ticks near the sweep glow brighter, like a radar beam.
+            diff = abs(((angle - sweep + math.pi) % (2 * math.pi)) - math.pi)
+            closeness = max(0.0, 1.0 - diff / 1.4)
+            alpha = (18 + 140 * closeness) * amount
+            color = QColor(self._color)
+            color.setAlpha(int(max(0, min(255, alpha))))
+
+            x1 = center.x() + math.cos(angle) * radius
+            y1 = center.y() + math.sin(angle) * radius
+            x2 = center.x() + math.cos(angle) * (radius + tick_len)
+            y2 = center.y() + math.sin(angle) * (radius + tick_len)
+            painter.setPen(_round_pen(color, 1.6))
+            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
     def _paint_ring(self, painter: QPainter, center: QPoint, breath: float, scale: float) -> None:
         # A slowly rotating double ring — subtle at idle, brighter and wider
@@ -325,6 +414,13 @@ class Overlay(QWidget):
         inner_color.setAlpha(int(60 + 40 * breath))
         painter.setPen(QPen(inner_color, 1.2))
         painter.drawEllipse(center, radius * 0.72, radius * 0.72)
+
+        # A bright core dot ties the rings to a single focal point.
+        core = QColor(self._color)
+        core.setAlpha(int(120 + 90 * breath))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(core)
+        painter.drawEllipse(center, radius * 0.06, radius * 0.06)
 
     def _paint_tool(self, painter: QPainter, center: QPoint, scale: float) -> None:
         # A comet-trail rotating arc: several fading copies behind the
@@ -347,19 +443,28 @@ class Overlay(QWidget):
         # A ring of bars pulsing at staggered phases — a cheap stand-in for a
         # real amplitude-driven equalizer (future work: feed actual playback
         # RMS from AudioIO instead of a sine wave).
-        bars = 24
+        bars = 32
         inner = scale * 0.2
         painter.setPen(_round_pen(self._color, 3))
         for i in range(bars):
             angle = (2 * math.pi / bars) * i
             wobble = 0.5 + 0.5 * math.sin(self._spin * 5 + i * 0.85)
-            length = inner * 0.3 + inner * 0.6 * wobble
+            length = inner * 0.3 + inner * 0.65 * wobble
             x1 = center.x() + math.cos(angle) * inner
             y1 = center.y() + math.sin(angle) * inner
             x2 = center.x() + math.cos(angle) * (inner + length)
             y2 = center.y() + math.sin(angle) * (inner + length)
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-        # A steady core ring ties the bars together instead of leaving a hole.
+        # A glossy core disc ties the bars together instead of leaving a
+        # hole — a radial highlight gives it an "arc reactor" glint.
+        core = QRadialGradient(QPointF(center) - QPointF(inner * 0.15, inner * 0.15), inner * 0.9)
+        bright = QColor(self._color).lighter(150)
+        bright.setAlpha(230)
+        dim = QColor(self._color)
+        dim.setAlpha(90)
+        core.setColorAt(0.0, bright)
+        core.setColorAt(1.0, dim)
         painter.setPen(QPen(self._color, 2))
+        painter.setBrush(core)
         painter.drawEllipse(center, inner * 0.85, inner * 0.85)

@@ -94,12 +94,18 @@ and anything left is audio tuning.
 
 ## The HUD
 
-Say "Hey Jarvis" and a small dim dot in the corner of your screen grows into
-a bigger, movie-style glass panel — cyan while it's listening, amber while a
-tool is running, a pulsing equalizer while it speaks — then shrinks back to
-the dot once the conversation ends. Purely visual, no on-screen text. It's
-optional (`ui.overlay.enabled` in `config.yaml`) and needs no setup beyond
-the normal `pip install -e .`. See [docs/GUIDE.md](docs/GUIDE.md#the-hud-overlay).
+Run `jarvis` and a real, sizeable holographic panel opens front-and-center on
+your screen — dark glass, a glowing arc-reactor ring, a sweeping radar bezel
+and targeting-bracket corners, movie-JARVIS style. It settles to a smaller
+idle ring while asleep, and the instant "Hey Jarvis" fires it grows into the
+full panel — cyan while listening, amber while a tool runs, a big pulsing
+equalizer while it speaks, red on error. Purely visual, no on-screen text.
+It's optional (`ui.overlay.enabled` in `config.yaml`) and needs no setup
+beyond the normal `pip install -e .`. See
+[docs/GUIDE.md](docs/GUIDE.md#the-hud-overlay).
+
+Jarvis's voice defaults to a deep male persona; set `gemini.voice_gender` to
+`"male"` or `"female"` in `config.yaml` to choose.
 
 ## Configuration
 

@@ -314,14 +314,16 @@ audio:
   echo_gate_min_rms: 900
 
 # ---------------- Visual HUD ----------------
-# The "dynamic Jarvis interface": a small, frameless, always-on-top widget in
-# a screen corner. It's a small dim dot while Jarvis sleeps, and the instant
-# there's anything to show it grows into a bigger, movie-style translucent
-# "glass panel" — brightening cyan while listening, spinning amber while a
-# tool runs, pulsing blue with an equalizer while it speaks — then contracts
-# back to the dot once the conversation ends. Purely visual, no on-screen
-# text. Drag it anywhere with the mouse — it remembers where you put it
-# (data/ui_overlay_pos.json).
+# The "dynamic Jarvis interface": a frameless, always-on-top holographic
+# HUD — dark glass, an electric-cyan arc-reactor ring, a sweeping radar
+# bezel and corner targeting brackets, styled after the movie interface.
+# It opens as a real, sizeable panel the moment Jarvis starts (not a
+# hidden tray icon), settles to a smaller idle ring while asleep, and the
+# instant there's anything to show it grows into the full panel — cyan
+# while listening, amber while a tool runs, a bigger pulsing equalizer
+# while it speaks, red on error — then eases back down once the
+# conversation ends. Purely visual, no on-screen text. Drag it anywhere
+# with the mouse — it remembers where you put it (data/ui_overlay_pos.json).
 #
 # Needs PySide6 + qasync (pip install -e . already pulls both in). If either
 # is missing, Jarvis logs one line and falls back to the plain console —
@@ -329,15 +331,20 @@ audio:
 ui:
   overlay:
     enabled: true
-    # bottom-right | bottom-left | top-right | top-left. Only used the very
-    # first run — after that, wherever you last dragged it wins.
+    # "center" opens Jarvis front-and-center on the primary screen, like a
+    # real app window — the intended default. Set to a corner
+    # (bottom-right | bottom-left | top-right | top-left) for a smaller,
+    # out-of-the-way HUD instead. Only used the very first run — after
+    # that, wherever you last dragged it wins.
+    position: "center"
     corner: "bottom-right"
-    # Base scale, not a fixed pixel size: idle is ~0.45x this (a small dot),
-    # the active panel is ~1.7x wide by ~0.85x tall (a wide glass panel).
-    # Bumped from the old fixed 160px ring to make the active panel read as
-    # genuinely bigger, not just the same ring scaled slightly up.
-    size: 200
-    margin: 40   # distance from the chosen screen corner, in pixels
+    # Base scale, not a fixed pixel size: idle is ~0.55x this (a visible
+    # ring, not a hidden dot), the active panel is ~1.9x wide by ~1x tall
+    # (a big glass panel with room for a real equalizer). Bumped again from
+    # 200 -> 380 so the whole thing reads as a proper "Jarvis window", not
+    # a corner widget.
+    size: 380
+    margin: 40   # distance from the chosen screen corner, in pixels — only used when position is a corner
 
 # ---------------- Storage ----------------
 storage:
