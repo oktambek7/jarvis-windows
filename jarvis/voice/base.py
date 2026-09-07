@@ -1,6 +1,32 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
+
+# The half-cascade Live models (what `gemini.model` is pinned to) only accept
+# 8 prebuilt voices: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr.
+# These two are the defaults for `gemini.voice_gender` — Fenrir reads as the
+# deepest of the male voices in that set (a noticeably lower, calmer pitch
+# than Puck/Charon/Orus), and Kore is a firm, confident female voice.
+VOICE_BY_GENDER: dict[str, str] = {
+    "male": "Fenrir",
+    "female": "Kore",
+}
+
+
+def resolve_voice_name(cfg: Any) -> str:
+    """The Gemini Live prebuilt voice name Jarvis speaks with.
+
+    `gemini.voice` pins an exact voice and always wins when set. Otherwise
+    `gemini.voice_gender` ("male" | "female") picks the default for that
+    persona. This is the one place that decision is made, so the startup
+    banner (console.py) and the actual Live session (live.py) never disagree.
+    """
+    explicit = cfg.get("gemini.voice")
+    if explicit:
+        return str(explicit)
+    gender = str(cfg.get("gemini.voice_gender", "male")).lower()
+    return VOICE_BY_GENDER.get(gender, VOICE_BY_GENDER["male"])
 
 
 class TTSBackend(ABC):

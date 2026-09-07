@@ -328,6 +328,17 @@ missing, `--doctor` flags it and Jarvis falls back to the plain console
 daemon instead of failing to start — a missing GUI library should never cost
 you the ability to talk to Jarvis.
 
+## Male or female voice
+
+`gemini.voice_gender` in `config.yaml` picks Jarvis's persona voice —
+`"male"` (default) speaks with **Fenrir**, the deepest-reading male voice
+among the 8 the half-cascade Live model supports; `"female"` speaks with
+**Kore**, a firm, confident female voice. Only matters when `tts.backend` is
+`"gemini"` (the default). To pin an exact voice instead — any of Puck,
+Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr — set `gemini.voice` to that
+name; it overrides `voice_gender` entirely. The resolved voice is echoed in
+the startup banner (`Ovoz` line) so you can always see which one is active.
+
 ## Troubleshooting
 
 **`--doctor` says PowerShell not found.** Windows ships `powershell.exe`; if

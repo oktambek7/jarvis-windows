@@ -78,12 +78,19 @@ gemini:
   text_model_fallbacks:
     - "gemini-3.6-flash"
 
-  # Voice used when tts.backend = "gemini".
-  # Options: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr (and more —
-  # any Gemini Live prebuilt voice name works here, this list is just the
-  # common ones). Back on "Charon" — the "Orus" experiment read as flat/odd
-  # in practice, so this reverts to the original, better-sounding default.
-  voice: "Charon"
+  # Which sex Jarvis's voice is, used when tts.backend = "gemini". Only
+  # matters if `voice` below is left null — set to whichever persona you
+  # want and Jarvis picks a good default voice for it:
+  #   "male"   -> Fenrir, a deep, calm, authoritative voice.
+  #   "female" -> Kore, a firm, confident voice.
+  voice_gender: "male"
+
+  # Explicit voice override. Leave null to let voice_gender (above) choose.
+  # Set this instead to pin an exact voice by name and skip the gender
+  # default entirely — any Gemini Live prebuilt voice name works, but the
+  # half-cascade model this config uses only actually accepts these 8:
+  # Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr.
+  voice: null
 
   # --------------------------------------------------------
   #  Pin the speech language. This matters a lot for Uzbek.

@@ -11,7 +11,7 @@ trained on Uzbek. You pay for it in latency. Flip tts.backend in config.yaml.
 
 from __future__ import annotations
 
-from .base import NativeTTS, TTSBackend
+from .base import NativeTTS, TTSBackend, resolve_voice_name
 
 
 def build_tts(cfg, audio) -> TTSBackend:
@@ -31,4 +31,4 @@ def build_tts(cfg, audio) -> TTSBackend:
     return NativeTTS()
 
 
-__all__ = ["build_tts", "TTSBackend", "NativeTTS"]
+__all__ = ["build_tts", "TTSBackend", "NativeTTS", "resolve_voice_name"]

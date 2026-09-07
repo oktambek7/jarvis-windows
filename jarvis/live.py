@@ -23,6 +23,7 @@ from google.genai import types
 
 from .persona import build_system_prompt
 from .ui.bus import State, bus
+from .voice.base import resolve_voice_name
 
 
 class LiveSession:
@@ -116,7 +117,7 @@ class LiveSession:
 
         # Voice selection only applies when Gemini is doing the speaking.
         if self.tts.modality == "AUDIO":
-            voice = str(self.cfg.get("gemini.voice", "Charon"))
+            voice = resolve_voice_name(self.cfg)
             speech = types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
