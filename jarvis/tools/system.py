@@ -243,7 +243,11 @@ _OPEN_APP_SCRIPT = """
     description=(
         "Launch or focus a Windows application by name, e.g. 'Notepad', "
         "'Calculator', 'Chrome', 'Visual Studio Code', 'Spotify', 'Telegram', "
-        "'Explorer'. Works for Microsoft Store apps too."
+        "'Explorer'. Works for Microsoft Store apps too. This ONLY brings the "
+        "app window to the foreground — it cannot find a contact, type, click, "
+        "or send anything inside it. Do NOT use this to message someone on "
+        "Telegram/WhatsApp/etc — use send_telegram_message (or the matching "
+        "dedicated tool) for that instead."
     ),
     parameters={
         "type": "OBJECT",
