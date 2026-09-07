@@ -2,6 +2,7 @@
 
 # Side-effect imports: each module decorates its tools onto `registry`.
 from . import (
+    custom_brain,  # noqa: F401,E402
     delegate,  # noqa: F401,E402
     gemini_agent,  # noqa: F401,E402
     recall,  # noqa: F401,E402

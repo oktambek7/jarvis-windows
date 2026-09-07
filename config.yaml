@@ -208,6 +208,21 @@ telegram:
   # Where the logged-in session is saved (".session" is appended by Telethon).
   session_path: "data/telegram"
 
+# ---------------- Custom model (bring your own brain) ----------------
+# A pluggable slot for any OpenAI-compatible chat-completions endpoint (with
+# tool calling) to run delegated tasks on, instead of Gemini or Claude —
+# useful for spending neither of their quotas, or just to use a model you
+# already pay for elsewhere. Put its key in the env var named by
+# api_key_env. Hidden entirely until base_url, model and that key are all
+# set.
+custom_model:
+  enabled: true
+  base_url: ""             # e.g. "https://api.your-provider.com/v1"
+  model: ""                # e.g. "gpt-5.4"
+  api_key_env: "CUSTOM_MODEL_API_KEY"
+  max_steps: 20
+  timeout: 120
+
 # ---------------- Audio plumbing ----------------
 audio:
   input_rate: 16000     # Gemini Live requires 16kHz PCM in

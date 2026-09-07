@@ -79,6 +79,7 @@ class Jarvis:
         """
         from pathlib import Path
 
+        from .tools.custom_brain import configured as custom_model_configured
         from .tools.delegate import claude_executable
         from .tools.telegram import credentials as telegram_credentials
         from .tools.telegram import session_path as telegram_session_path
@@ -91,6 +92,9 @@ class Jarvis:
                 "Claude Code CLI topilmadi — murakkab vazifalarni topshirib "
                 "bo'lmaydi. O'rnatish: npm install -g @anthropic-ai/claude-code"
             )
+
+        if not custom_model_configured(self.cfg):
+            registry.disable("delegate_to_custom_model")
 
         if telegram_credentials(self.cfg) is None:
             registry.disable("send_telegram_message")

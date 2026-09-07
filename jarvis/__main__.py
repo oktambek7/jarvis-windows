@@ -182,6 +182,19 @@ async def _doctor(config_path: Path | None) -> int:
     else:
         row("Telegram", True, "seans topildi", fatal=False)
 
+    # -- custom model: bring your own brain --
+    from .tools.custom_brain import base_url as custom_model_base_url
+    from .tools.custom_brain import configured as custom_model_configured
+
+    if not cfg.get("custom_model.enabled", True):
+        pass
+    elif custom_model_configured(cfg):
+        row("Custom model", True, custom_model_base_url(cfg), fatal=False)
+    elif custom_model_base_url(cfg):
+        row("Custom model", False, "ixtiyoriy — model nomi yoki API kaliti yo'q", fatal=False)
+    else:
+        row("Custom model", False, "ixtiyoriy — custom_model sozlanmagan", fatal=False)
+
     # -- claude cli: the hands --
     claude_bin = winplat.resolve_executable(str(cfg.get("claude.command", "claude")))
     row(
