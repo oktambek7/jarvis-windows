@@ -51,10 +51,27 @@ AGENT_CONTEXT = (
 _SELF_TOOLS = {"delegate_to_gemini", "delegate_to_claude", "check_jobs"}
 
 
-async def _run_gemini_agent(cfg, client, log, task: str, cwd: str) -> tuple[bool, str]:
+async def run_gemini_agent(
+    cfg,
+    client,
+    log,
+    task: str,
+    cwd: str,
+    *,
+    context: str = AGENT_CONTEXT,
+    max_steps: int = MAX_STEPS,
+    exclude_tools: set[str] | None = _SELF_TOOLS,
+    surface: str = "gemini-agent",
+) -> tuple[bool, str]:
+    """Drive Jarvis's own tool registry through Gemini's turn-by-turn loop.
+
+    Generalized out of delegate_to_gemini so other entry points (the
+    Telegram bot) can run the exact same loop with their own system prompt,
+    step budget and audit surface, instead of a second copy of this loop.
+    """
     from .. import genai_util
 
-    config = genai_util.agent_config(cfg, AGENT_CONTEXT, exclude_tools=_SELF_TOOLS)
+    config = genai_util.agent_config(cfg, context, exclude_tools=exclude_tools)
     contents = [
         types.Content(
             role="user",
@@ -62,7 +79,7 @@ async def _run_gemini_agent(cfg, client, log, task: str, cwd: str) -> tuple[bool
         )
     ]
 
-    for _ in range(MAX_STEPS):
+    for _ in range(max_steps):
         try:
             response = await genai_util.generate(client, cfg, contents, config, log=log)
         except Exception as exc:  # noqa: BLE001 - a crashed agent must not kill the caller
@@ -79,7 +96,7 @@ async def _run_gemini_agent(cfg, client, log, task: str, cwd: str) -> tuple[bool
             args = dict(fc.args or {})
             if log:
                 log.tool(fc.name, args)
-            result = await registry.invoke(fc.name, args, surface="gemini-agent")
+            result = await registry.invoke(fc.name, args, surface=surface)
             results.append(types.Part.from_function_response(name=fc.name, response=result))
         contents.append(types.Content(role="user", parts=results))
 
@@ -143,6 +160,6 @@ async def delegate_to_gemini(
     log = ctx.get("log")
 
     async def _runner() -> tuple[bool, str]:
-        return await _run_gemini_agent(cfg, client, log, task, str(workdir))
+        return await run_gemini_agent(cfg, client, log, task, str(workdir))
 
     return await deliver(ctx, surface, task, str(workdir), background, _runner, backend="Gemini")

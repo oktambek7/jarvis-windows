@@ -14,7 +14,7 @@ import os
 
 from google import genai
 
-from . import winplat
+from . import telegram_bot, winplat
 from .audio import AudioIO, WakeWordDetector
 from .audit import AuditLog
 from .config import Config, load_config
@@ -144,6 +144,10 @@ class Jarvis:
         self.log.banner(self.cfg)
         self.audit.note("system", "jarvis_started", autonomy=self.cfg.get("agent.autonomy"))
 
+        warning = telegram_bot.startup_warning(self.cfg)
+        if warning:
+            self.log.warn(warning)
+
     async def voice_loop(self) -> None:
         """Sleep on the wake word; wake into a full Live conversation."""
         wake_enabled = bool(self.cfg.get("wake.enabled", True)) and not os.getenv("JARVIS_NO_WAKE")
@@ -193,10 +197,16 @@ class Jarvis:
 async def run(config_path=None) -> None:
     cfg = load_config(config_path)
     jarvis = Jarvis(cfg)
+    tasks: list[asyncio.Task] = []
     try:
         await jarvis.start()
-        await jarvis.voice_loop()
+        tasks.append(asyncio.create_task(jarvis.voice_loop()))
+        if telegram_bot.is_configured(cfg):
+            tasks.append(asyncio.create_task(telegram_bot.start_bot(jarvis)))
+        await asyncio.gather(*tasks)
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass
     finally:
+        for task in tasks:
+            task.cancel()
         await jarvis.shutdown()

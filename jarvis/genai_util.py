@@ -139,3 +139,28 @@ async def generate(
 
     assert last is not None
     raise last
+
+
+async def transcribe_audio(client, cfg, audio_bytes: bytes, mime_type: str, log=None) -> str:
+    """Transcribe a short audio clip (e.g. a Telegram voice note) to text.
+
+    Used by the Telegram bot so a voice note can carry a task exactly like a
+    spoken wake-word command does — Gemini Live handles that for the
+    microphone, but a Telegram voice note arrives as a file, not a live
+    audio stream, so it needs its own one-shot transcription call.
+    """
+    from google.genai import types
+
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(
+                    text="Transcribe this audio verbatim. Reply with only the transcript, nothing else."
+                ),
+                types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+            ],
+        )
+    ]
+    response = await generate(client, cfg, contents, config=None, log=log)
+    return (response.text or "").strip()

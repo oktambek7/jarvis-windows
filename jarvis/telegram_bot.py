@@ -1,0 +1,155 @@
+"""Inbound Telegram bot — give Jarvis tasks (text or voice notes) from
+Telegram, not just the microphone, and get the reply back as a message.
+
+Separate from tools/telegram.py's send_telegram_message: that one sends AS
+you, through your own MTProto user session, so you can message your other
+contacts. This one runs your OWN bot (a token from @BotFather) that listens
+for messages FROM you and routes them through the same tool loop the mic
+uses — a voice note sent to the bot can run_shell / open_app / etc. exactly
+like saying it out loud, and it can use a different "brain" (Gemini, or a
+pluggable custom model via tools/custom_brain.py) without touching the Live
+voice path at all.
+
+Off by default until BOTH TELEGRAM_BOT_TOKEN is set AND
+telegram_bot.allow_from lists at least one Telegram user id. An empty
+allowlist must never be read as "allow everyone" — this bot can run shell
+commands on the PC.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+
+from . import genai_util
+from .tools.custom_brain import configured as custom_model_configured
+from .tools.custom_brain import run_custom_agent
+from .tools.gemini_agent import run_gemini_agent
+from .tools.telegram import credentials
+
+# What the model is told about the context it's running in. Telegram renders
+# Markdown and has no TTS budget to protect, so this is looser than the
+# voice-surface delegate prompts (VOICE_CONTEXT / gemini_agent.AGENT_CONTEXT).
+TELEGRAM_CONTEXT = (
+    "You are Jarvis, reached here through a Telegram bot instead of the "
+    "microphone. Do the work fully and autonomously; don't ask for "
+    "permission. Reply in the language the user wrote in, with a clear, "
+    "concise message describing what you did and the result. Telegram "
+    "renders Markdown — keep formatting light and only where it helps."
+)
+
+MAX_STEPS = 20
+
+
+def bot_token() -> str | None:
+    return os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None
+
+
+def allow_from(cfg) -> set[int]:
+    ids = cfg.get("telegram_bot.allow_from", []) or []
+    out = set()
+    for raw in ids:
+        try:
+            out.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def session_path(cfg) -> str:
+    return str(cfg.path("telegram_bot.session_path", "data/telegram_bot"))
+
+
+def is_configured(cfg) -> bool:
+    return bool(cfg.get("telegram_bot.enabled", True)) and bool(bot_token()) and bool(allow_from(cfg)) and credentials(cfg) is not None
+
+
+def startup_warning(cfg) -> str | None:
+    """Why the bot isn't starting, or None if it is (or is deliberately off)."""
+    if not cfg.get("telegram_bot.enabled", True):
+        return None
+    if not bot_token():
+        return None  # not set up at all — not worth warning about every run
+    missing = []
+    if not allow_from(cfg):
+        missing.append("telegram_bot.allow_from (config.yaml)")
+    if credentials(cfg) is None:
+        missing.append("TELEGRAM_API_ID/TELEGRAM_API_HASH (.env)")
+    if missing:
+        return "Telegram bot ishga tushmadi — kerak: " + ", ".join(missing)
+    return None
+
+
+async def _run_task(jarvis, task: str, surface: str) -> str:
+    cfg = jarvis.cfg
+    backend = str(cfg.get("telegram_bot.brain", "gemini")).lower()
+    max_steps = int(cfg.get("telegram_bot.max_steps", MAX_STEPS))
+
+    if backend == "custom" and custom_model_configured(cfg):
+        ok, text = await run_custom_agent(
+            cfg, task, jarvis.log, context=TELEGRAM_CONTEXT, max_steps=max_steps, surface=surface
+        )
+    else:
+        cwd = str(cfg.get("claude.default_cwd", "~"))
+        ok, text = await run_gemini_agent(
+            cfg,
+            jarvis.client,
+            jarvis.log,
+            task,
+            cwd,
+            context=TELEGRAM_CONTEXT,
+            max_steps=max_steps,
+            surface=surface,
+        )
+    return text if ok else f"Xato: {text}"
+
+
+async def start_bot(jarvis) -> None:
+    """Run the Telegram bot listener until cancelled. Meant to run as a
+    background task alongside the wake-word voice loop (see app.run)."""
+    from telethon import TelegramClient, events
+
+    cfg = jarvis.cfg
+    token = bot_token()
+    allowed = allow_from(cfg)
+    creds = credentials(cfg)
+    if not token or not allowed or creds is None:
+        return
+
+    api_id, api_hash = creds
+    client = TelegramClient(session_path(cfg), api_id, api_hash)
+
+    @client.on(events.NewMessage(incoming=True))
+    async def _on_message(event) -> None:  # noqa: ANN001 - Telethon event type
+        if event.sender_id not in allowed:
+            return
+
+        if event.voice or event.audio:
+            audio_bytes = await event.download_media(file=bytes)
+            mime = (event.file.mime_type if event.file else None) or "audio/ogg"
+            task = await genai_util.transcribe_audio(jarvis.client, cfg, audio_bytes, mime, jarvis.log)
+            if not task.strip():
+                await event.reply("Ovozli xabarni tushuna olmadim.")
+                return
+        else:
+            task = (event.raw_text or "").strip()
+            if not task:
+                return
+
+        jarvis.memory.add_turn("telegram", "user", task)
+        jarvis.audit.note("telegram", "message_in", chat_id=event.sender_id)
+        reply = await _run_task(jarvis, task, surface="telegram")
+        jarvis.memory.add_turn("telegram", "assistant", reply)
+        jarvis.audit.note("telegram", "message_out", chat_id=event.sender_id)
+        await event.reply(reply[:4000] or "Vazifa bajarildi.")
+
+    try:
+        await client.start(bot_token=token)
+        jarvis.log.info("Telegram bot ishga tushdi.")
+        await client.run_until_disconnected()
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - a Telegram-side crash must not kill the voice loop
+        jarvis.log.warn(f"Telegram bot to'xtadi: {exc}")
+    finally:
+        await client.disconnect()

@@ -12,19 +12,21 @@ jarvis/
 ├── persona.py      the Uzbek system prompt
 ├── memory.py       SQLite: turns, facts, background jobs
 ├── reflect.py      mines finished conversations for durable facts
-├── genai_util.py   turn-based generation with model fallback
+├── genai_util.py   turn-based generation with model fallback, audio transcription
 ├── audit.py        append-only log of every tool call
 ├── console.py      terminal output
 ├── config.py       config.yaml + .env loading
+├── telegram_bot.py inbound Telegram bot — tasks from your phone, text or voice notes
 ├── tools/
 │   ├── base.py       the registry + the destructive-command safety net
 │   ├── system.py     the 11 tools that touch Windows
 │   ├── delegate.py   handing work to Claude Code (fallback hands)
-│   ├── gemini_agent.py  handing work to Jarvis's own Gemini agent (default hands)
+│   ├── gemini_agent.py  handing work to Jarvis's own Gemini agent (default hands);
+│   │                    also exposes run_gemini_agent(), reused by telegram_bot.py
 │   ├── openclaw.py   handing work to a self-hosted OpenClaw gateway (docs/OPENCLAW.md)
 │   ├── custom_brain.py  handing work to a pluggable OpenAI-compatible model ("bring your own brain")
-│   ├── agentwork.py  shared grace-period/background delivery for both of the above
-│   ├── telegram.py   send_telegram_message, via Telethon
+│   ├── agentwork.py  shared grace-period/background delivery for all delegate_to_* tools
+│   ├── telegram.py   send_telegram_message, via Telethon (sends AS you)
 │   └── recall.py     memory tools
 ├── voice/
 │   ├── base.py     native (Gemini) speech output
@@ -50,7 +52,11 @@ also why you are not billed for sitting in silence.
 **Memory** — `remember`, `recall`, `forget`, `search_history`
 
 **Messaging** — `send_telegram_message` (hidden until `TELEGRAM_API_ID` /
-`TELEGRAM_API_HASH` are set and `--telegram-login` has been run — see below)
+`TELEGRAM_API_HASH` are set and `--telegram-login` has been run — see below).
+Separately, the **Telegram bot** (`telegram_bot.py`) is not a tool the model
+calls — it's a second way *in*: text or voice notes sent to your own bot run
+through the same tool registry, so you can give Jarvis tasks from your phone.
+See [Telegram bot](#telegram-bot-tasks-from-your-phone) below.
 
 **Delegation** — `delegate_to_gemini` (default hands, spends Gemini quota),
 `delegate_to_claude` (fallback hands, spends Claude quota),
@@ -106,6 +112,35 @@ gets — its JSON-schema `type` values are upper-case (`OBJECT`, `STRING`),
 OpenAI's want lower-case, so `_lower_types()` recursively fixes the tree —
 and drives an identical turn-by-turn loop against that endpoint instead.
 Hidden entirely until all three settings are present.
+
+## Telegram bot: tasks from your phone
+
+`telegram_bot.py` is a second way to reach Jarvis, separate from both the
+microphone and `send_telegram_message`. It runs *your own* Telegram bot (a
+token from [@BotFather](https://t.me/BotFather)) and listens for messages
+from you — text or voice notes — routing each one through the same tool
+registry the mic uses, via `tools/gemini_agent.py`'s `run_gemini_agent()` (or
+`tools/custom_brain.py`'s `run_custom_agent()` if `telegram_bot.brain` is set
+to `"custom"`). A voice note gets transcribed first
+(`genai_util.transcribe_audio()`) and then handled exactly like text.
+
+Setup:
+
+1. Message `@BotFather` → `/newbot` → copy the token into `.env` as
+   `TELEGRAM_BOT_TOKEN`.
+2. Message `@userinfobot` to get your own numeric Telegram user id.
+3. Set `telegram_bot.allow_from: [<your id>]` in `config.yaml`.
+4. Make sure `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` are set too (same app
+   credentials `send_telegram_message` uses).
+
+The bot runs as a background task alongside the wake-word voice loop inside
+the same `python -m jarvis` process — one running assistant, reachable both
+ways, sharing memory and the audit log. An **empty `allow_from` always means
+the bot stays off**, even with a valid token: this bot can run shell
+commands on your PC, so an unconfigured allowlist must never default to
+"anyone who finds the bot can command it." If the bot crashes (a Telegram-side
+network issue, say), the voice loop keeps running regardless — see
+`telegram_bot.start_bot()`'s own exception handling.
 
 ### `run_shell` is the important one
 

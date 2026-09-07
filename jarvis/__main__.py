@@ -182,6 +182,18 @@ async def _doctor(config_path: Path | None) -> int:
     else:
         row("Telegram", True, "seans topildi", fatal=False)
 
+    # -- telegram bot: give Jarvis tasks from your phone --
+    from . import telegram_bot
+
+    if not cfg.get("telegram_bot.enabled", True):
+        pass  # deliberately off; no row needed
+    elif telegram_bot.bot_token() is None:
+        row("Telegram bot", False, "ixtiyoriy — TELEGRAM_BOT_TOKEN .env da yo'q", fatal=False)
+    elif telegram_bot.is_configured(cfg):
+        row("Telegram bot", True, f"allow_from: {sorted(telegram_bot.allow_from(cfg))}", fatal=False)
+    else:
+        row("Telegram bot", False, telegram_bot.startup_warning(cfg) or "sozlanmagan", fatal=False)
+
     # -- custom model: bring your own brain --
     from .tools.custom_brain import base_url as custom_model_base_url
     from .tools.custom_brain import configured as custom_model_configured

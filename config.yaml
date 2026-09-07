@@ -225,6 +225,27 @@ telegram:
   # Where the logged-in session is saved (".session" is appended by Telethon).
   session_path: "data/telegram"
 
+# ---------------- Telegram bot (give Jarvis tasks from your phone) ----------------
+# A second, separate Telegram identity: your OWN bot (a token from
+# @BotFather), which listens for messages FROM you instead of sending as you.
+# Text or voice notes sent to the bot run through the same tool registry the
+# microphone uses (run_shell, open_app, file I/O, ...), so this works even
+# when you're away from the PC's mic. Needs, in .env:
+#   TELEGRAM_BOT_TOKEN          — from @BotFather
+#   TELEGRAM_API_ID/API_HASH    — same ones telegram: above uses
+# and, below, allow_from with your own numeric Telegram user id (find it by
+# messaging @userinfobot). An empty allow_from means the bot stays off —
+# never treated as "allow everyone".
+telegram_bot:
+  enabled: true
+  # Numeric Telegram user ids allowed to command Jarvis this way.
+  allow_from: [1115457362]
+  # "gemini" (default, spends Gemini quota) or "custom" (spends the
+  # custom_model below instead — falls back to gemini if that isn't set up).
+  brain: "gemini"
+  max_steps: 20
+  session_path: "data/telegram_bot"
+
 # ---------------- Custom model (bring your own brain) ----------------
 # A pluggable slot for any OpenAI-compatible chat-completions endpoint (with
 # tool calling) to run delegated tasks on, instead of Gemini or Claude —
