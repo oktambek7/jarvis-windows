@@ -381,18 +381,36 @@ class LiveSession:
 
     async def _handle_tools(self, session, tool_call) -> None:
         responses = []
-        for fc in tool_call.function_calls:
-            args = dict(fc.args or {})
-            self.log.tool(fc.name, args)
-            bus.publish(State.TOOL, fc.name)
+        try:
+            for fc in tool_call.function_calls:
+                args = dict(fc.args or {})
+                self.log.tool(fc.name, args)
+                bus.publish(State.TOOL, fc.name)
 
-            result = await self.registry.invoke(fc.name, args, surface="voice")
-            self.memory.add_turn(
-                "voice", "tool", f"{fc.name}({args}) -> {str(result)[:500]}"
-            )
-            responses.append(
-                types.FunctionResponse(id=fc.id, name=fc.name, response=result)
-            )
+                result = await self.registry.invoke(fc.name, args, surface="voice")
+                self.memory.add_turn(
+                    "voice", "tool", f"{fc.name}({args}) -> {str(result)[:500]}"
+                )
+                responses.append(
+                    types.FunctionResponse(id=fc.id, name=fc.name, response=result)
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # A tool crashing (or this same loop-level reentrancy bug hitting
+            # mid-call) must not leave Gemini waiting forever for a function
+            # response that's never coming — that's what makes a whole turn
+            # look "stuck" from the user's side. Answer every call we hadn't
+            # already answered with an error instead.
+            self.log.error(f"tool handling failed: {type(exc).__name__}: {exc}")
+            answered = {r.id for r in responses}
+            for fc in tool_call.function_calls:
+                if fc.id not in answered:
+                    responses.append(
+                        types.FunctionResponse(
+                            id=fc.id, name=fc.name, response={"error": str(exc)[:200]}
+                        )
+                    )
 
         bus.publish(State.LISTENING)
         if not responses:
