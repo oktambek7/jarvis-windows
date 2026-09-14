@@ -20,6 +20,14 @@ from google.genai import errors
 # Codes worth trying again or trying elsewhere.
 RETRYABLE = {429, 500, 502, 503, 504}
 
+# Models this process has already learned can't take Search grounding
+# together with our function declarations (see _blames_search_tool). Once a
+# model lands here, every later call skips straight to the no-search config
+# instead of paying for a doomed round trip first — that retry was
+# happening on nearly every single turn in practice, since it's a
+# per-key/tier limitation, not a transient one.
+_search_unsupported_models: set[str] = set()
+
 
 def _without_search_tool(config):
     """Drop the Google Search tool, for keys/models that reject combining it
@@ -46,6 +54,18 @@ def _blames_search_tool(exc: Exception) -> bool:
     """
     text = str(exc).lower()
     return "tool call context circulation" in text or ("quota" in text and "billing" in text)
+
+
+def _is_daily_quota_exhausted(exc: Exception) -> bool:
+    """A hard per-day/per-project cap (RESOURCE_EXHAUSTED), not a brief
+    rate limit. Retrying the same model a second time within a second, or
+    backing off less than a full day, cannot succeed — so this skips the
+    normal retry-with-backoff and moves straight to the next model instead
+    of burning an extra round trip (and the wait before it) on a call that
+    is guaranteed to fail identically.
+    """
+    text = str(exc).lower()
+    return "resource_exhausted" in text and "quota" in text
 
 
 def agent_config(cfg, system_instruction: str | None = None, exclude_tools: set[str] | None = None):
@@ -109,6 +129,14 @@ async def generate(
 
     for index, model in enumerate(model_chain(cfg, primary)):
         active_config = config
+        # Already learned (this process, or earlier in this same call) that
+        # this model can't take Search alongside our tools — skip straight
+        # to the no-search config instead of paying for a doomed attempt.
+        if model in _search_unsupported_models:
+            stripped = _without_search_tool(active_config)
+            if stripped is not None:
+                active_config = stripped
+
         for attempt in range(attempts_per_model):
             try:
                 response = await client.aio.models.generate_content(
@@ -124,12 +152,18 @@ async def generate(
                     stripped = _without_search_tool(active_config)
                     if stripped is not None:
                         active_config = stripped
+                        _search_unsupported_models.add(model)
                         if log:
                             log.warn(f"{model} qidiruvni funksiyalar bilan birga qo'llamaydi — qidiruvsiz qayta urinildi")
                         continue
                 if code not in RETRYABLE:
                     raise
                 last = exc
+                # A hard daily quota cap can't be fixed by retrying the same
+                # model again a moment later — move on immediately instead
+                # of paying for a second doomed attempt plus its backoff.
+                if _is_daily_quota_exhausted(exc):
+                    break
                 # Back off within a model before writing it off entirely.
                 if attempt + 1 < attempts_per_model:
                     await asyncio.sleep(0.8 * (attempt + 1))
