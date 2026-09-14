@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 
 from .base import registry
 
@@ -28,6 +29,16 @@ from .base import registry
 # reconnecting per call would add a ~1s handshake to every message.
 _client = None
 _client_lock = asyncio.Lock()
+
+# Dialog list, cached for a bit: fetching every chat from Telegram's servers
+# on every single send_telegram_message call is the main reason messaging
+# felt slow, and dialogs (contacts, groups) rarely change between one
+# message and the next. Refreshed automatically once stale, and immediately
+# if a name isn't found in the cached list (it might be a chat that just
+# appeared).
+_DIALOG_CACHE_TTL = 120.0
+_dialog_cache: list | None = None
+_dialog_cache_at: float = 0.0
 
 
 def session_path(cfg) -> str:
@@ -72,16 +83,29 @@ async def _get_client(cfg):
     return _client
 
 
-async def _find_dialog(client, name: str):
-    """Fuzzy-match a chat by display name, case-insensitive.
+async def _cached_dialogs(client, *, force: bool = False) -> list:
+    """The user's dialog list, refetched only when stale or forced.
 
-    An exact match wins; otherwise the first dialog whose name contains the
+    iter_dialogs() is a full round trip to Telegram's servers — paying that
+    on every message send is most of what made "message X on Telegram" feel
+    slow. A short TTL keeps repeated sends in one conversation fast while
+    still picking up new chats within a couple of minutes.
+    """
+    global _dialog_cache, _dialog_cache_at
+    stale = _dialog_cache is None or (time.monotonic() - _dialog_cache_at) > _DIALOG_CACHE_TTL
+    if force or stale:
+        _dialog_cache = [d async for d in client.iter_dialogs()]
+        _dialog_cache_at = time.monotonic()
+    return _dialog_cache
+
+
+def _match(dialogs: list, needle: str):
+    """Exact match wins; otherwise the first dialog whose name contains the
     query, so "Ali" can hit "Aliyor aka" without the user saying the full
     name — the same matching style open_app/close_app use for Windows apps.
     """
-    needle = name.strip().lower()
     best_substr = None
-    async for dialog in client.iter_dialogs():
+    for dialog in dialogs:
         dname = (dialog.name or "").strip()
         if not dname:
             continue
@@ -91,6 +115,19 @@ async def _find_dialog(client, name: str):
         if best_substr is None and needle in low:
             best_substr = dialog
     return best_substr
+
+
+async def _find_dialog(client, name: str):
+    """Fuzzy-match a chat by display name, case-insensitive.
+
+    Tries the cached dialog list first; if nothing matches, forces one
+    refresh in case it's a chat that only just appeared, before giving up.
+    """
+    needle = name.strip().lower()
+    hit = _match(await _cached_dialogs(client), needle)
+    if hit is not None:
+        return hit
+    return _match(await _cached_dialogs(client, force=True), needle)
 
 
 @registry.tool(
