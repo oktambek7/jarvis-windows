@@ -5,6 +5,7 @@ from . import (
     custom_brain,  # noqa: F401,E402
     delegate,  # noqa: F401,E402
     gemini_agent,  # noqa: F401,E402
+    media,  # noqa: F401,E402
     openclaw,  # noqa: F401,E402
     recall,  # noqa: F401,E402
     system,  # noqa: F401,E402
