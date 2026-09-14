@@ -262,8 +262,32 @@ class LiveSession:
                 return
 
     async def _watchdog(self) -> None:
+        # A qasync/Windows event-loop reentrancy bug (see
+        # _install_loop_exception_handler in app.py) can orphan the 'mic'
+        # task outright: its __step() is aborted before the coroutine body
+        # ever runs again, so no try/except inside _pump_mic can catch it.
+        # The task then sits "pending" forever, silently dead. The tell is
+        # that _push_mic (audio.py) keeps feeding mic_queue from its own
+        # thread every ~32ms regardless, so a dead consumer shows up as the
+        # bounded queue staying pegged at maxsize instead of draining. Catch
+        # that fast instead of waiting out the full silence_timeout with a
+        # session that can no longer hear anything.
+        stalled_checks = 0
         while not self._stop.is_set():
             await asyncio.sleep(0.5)
+
+            if self.audio.mic_queue.full():
+                stalled_checks += 1
+                if stalled_checks >= 3:
+                    self.log.error(
+                        "Mikrofon oqimi to'xtab qoldi (asyncio ichki xato) — "
+                        "sessiyani qayta boshlayman."
+                    )
+                    self._stop.set()
+                    return
+            else:
+                stalled_checks = 0
+
             if self.audio.is_speaking:
                 self._touch()
                 continue
