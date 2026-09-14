@@ -342,11 +342,11 @@ ui:
     position: "center"
     corner: "bottom-right"
     # Base scale, not a fixed pixel size: idle is ~0.55x this (a visible
-    # ring, not a hidden dot), the active panel is ~1.9x wide by ~1x tall
-    # (a big glass panel with room for a real equalizer). Bumped again from
-    # 200 -> 380 so the whole thing reads as a proper "Jarvis window", not
-    # a corner widget.
-    size: 380
+    # ring, not a hidden dot), the active panel is ~1.7x wide by ~1x tall
+    # (a glass panel with room for a real equalizer). Sized for a laptop
+    # screen — big enough to read as a real HUD, small enough that it
+    # doesn't eat a quarter of the display like the old 380 base did.
+    size: 220
     margin: 40   # distance from the chosen screen corner, in pixels — only used when position is a corner
 
 # ---------------- Storage ----------------

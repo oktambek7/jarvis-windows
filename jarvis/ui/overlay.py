@@ -91,11 +91,11 @@ class Overlay(QWidget):
         self._cfg = cfg
         # `ui.overlay.size` is a base scale, not a fixed pixel size: idle is
         # roughly half of it (a small ring, not a hidden dot), the active
-        # panel is roughly 1.9x wider and about as tall (a big glass panel
-        # with room for a real equalizer inside).
-        base = int(cfg.get("ui.overlay.size", 380))
+        # panel is roughly 1.7x wider and about as tall — a compact glass
+        # panel sized for a laptop screen, not a full-width banner.
+        base = int(cfg.get("ui.overlay.size", 220))
         self._idle_size = max(60, int(base * 0.55))
-        self._panel_w = int(base * 1.9)
+        self._panel_w = int(base * 1.7)
         self._panel_h = int(base * 1.0)
         self._pos_file = Path(cfg.path("storage.db", "data/jarvis.db")).parent / "ui_overlay_pos.json"
 
