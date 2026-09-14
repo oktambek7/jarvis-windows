@@ -5,11 +5,15 @@ from typing import Any
 
 # The half-cascade Live models (what `gemini.model` is pinned to) only accept
 # 8 prebuilt voices: Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, Zephyr.
-# These two are the defaults for `gemini.voice_gender` — Fenrir reads as the
-# deepest of the male voices in that set (a noticeably lower, calmer pitch
-# than Puck/Charon/Orus), and Kore is a firm, confident female voice.
+# These two are the defaults for `gemini.voice_gender`. Fenrir and Orus were
+# both tried first and came back sounding noticeably accented and harder to
+# follow in Uzbek. Charon is Google's "Informative" voice — even, measured
+# diction closer to a newsreader than the others — and that steadier pacing
+# is what actually reads as clear and understandable across languages,
+# Uzbek included, rather than any of them being Uzbek-native. Kore stays the
+# firm, confident female voice.
 VOICE_BY_GENDER: dict[str, str] = {
-    "male": "Fenrir",
+    "male": "Charon",
     "female": "Kore",
 }
 

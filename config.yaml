@@ -81,7 +81,10 @@ gemini:
   # Which sex Jarvis's voice is, used when tts.backend = "gemini". Only
   # matters if `voice` below is left null — set to whichever persona you
   # want and Jarvis picks a good default voice for it:
-  #   "male"   -> Fenrir, a deep, calm, authoritative voice.
+  #   "male"   -> Charon, an even, "informative" newsreader-style voice —
+  #               the clearest of the 8 prebuilt voices across languages,
+  #               Uzbek included. Fenrir and Orus were tried first and both
+  #               came back sounding more accented and harder to follow.
   #   "female" -> Kore, a firm, confident voice.
   voice_gender: "male"
 
