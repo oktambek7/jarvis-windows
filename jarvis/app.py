@@ -201,13 +201,15 @@ def _install_loop_exception_handler(loop: asyncio.AbstractEventLoop, log) -> Non
     opposed to one raised inside a task's own code, which already surfaces
     through normal try/except) is only ever printed to stderr by asyncio's
     default handler — invisible when Jarvis runs detached (a scheduled
-    task, a background service) with nothing watching that stream. The most
-    common example seen in the wild here is a "Cannot enter into task X
-    while another task Y is being executed" RuntimeError, a known qasync +
-    Windows Proactor-loop reentrancy quirk (unresolved upstream as of this
-    writing) that shows up occasionally under the HUD overlay or the
-    Telegram bot's client. It is not fatal — the loop recovers and Jarvis
-    keeps running — but it deserves a clear log line instead of vanishing.
+    task, a background service) with nothing watching that stream. The
+    example seen in the wild here was a "Cannot enter into task X while
+    another task Y is being executed" RuntimeError, a qasync + Windows
+    Proactor-loop reentrancy quirk that showed up when the HUD overlay's Qt
+    event loop and the voice session's asyncio loop shared a thread; see
+    jarvis/ui/runtime.py, which now runs them on separate threads instead,
+    removing that cause. Kept anyway as a general safety net — this handler
+    is cheap, and any future event-loop-level exception (from the Telegram
+    bot's client, say) is worth a clear log line instead of vanishing.
     """
 
     def handler(loop: asyncio.AbstractEventLoop, context: dict) -> None:

@@ -26,7 +26,7 @@ import math
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QTimer
+from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QGuiApplication,
@@ -59,6 +59,16 @@ _ENERGY: dict[State, float] = {
 
 _FRAME_MS = 16  # ~60 fps — smooth motion, still cheap enough to run forever
 _LERP = 0.12    # per-frame interpolation factor for color/energy/radius/size
+
+
+class _EventBridge(QObject):
+    """Marshals bus.publish() calls (made from the asyncio thread) onto the
+    Qt GUI thread. A Qt signal auto-queues delivery across threads based on
+    the *receiver's* thread affinity, no matter which thread calls emit() —
+    the one safe way to reach a QWidget from foreign code.
+    """
+
+    changed = Signal(object)
 
 
 def _lerp(a: float, b: float, t: float) -> float:
@@ -130,7 +140,9 @@ class Overlay(QWidget):
         self._timer.start(_FRAME_MS)
         self._last_tick = time.monotonic()
 
-        bus.subscribe(self._on_event)
+        self._bridge = _EventBridge()
+        self._bridge.changed.connect(self._on_event)
+        bus.subscribe(self._bridge.changed.emit)
 
     # ------------------------------------------------------------- placement
 

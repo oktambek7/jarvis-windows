@@ -22,7 +22,6 @@ dependencies = [
     # daemon if either is missing — but installed by default since the
     # overlay is on by default (ui.overlay.enabled in config.yaml).
     "PySide6>=6.7",
-    "qasync>=0.27",
     # --- Windows-only. Marked so the package still installs on Linux/macOS
     # for testing; the tools that need them report a clear error there.
     "mss>=9.0; sys_platform == 'win32'",

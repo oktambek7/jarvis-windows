@@ -34,7 +34,7 @@ jarvis/
 └── ui/             the dynamic HUD overlay
     ├── bus.py       state pub/sub (no GUI deps — always importable)
     ├── overlay.py   the PySide6 widget itself
-    └── runtime.py   merges Qt's event loop into asyncio via qasync
+    └── runtime.py   runs Qt's loop and Jarvis's asyncio loop on separate threads
 ```
 
 The daemon spends almost all its life in one cheap loop: read 80 ms of mic
@@ -332,10 +332,10 @@ session errors. The overlay is just one subscriber; nothing about the voice
 loop depends on a HUD being attached.
 
 Turn it off with `ui.overlay.enabled: false` in `config.yaml`. It needs
-`PySide6` + `qasync` (both pulled in by `pip install -e .`); if either is
-missing, `--doctor` flags it and Jarvis falls back to the plain console
-daemon instead of failing to start — a missing GUI library should never cost
-you the ability to talk to Jarvis.
+`PySide6` (pulled in by `pip install -e .`); if it's missing, `--doctor`
+flags it and Jarvis falls back to the plain console daemon instead of
+failing to start — a missing GUI library should never cost you the ability
+to talk to Jarvis.
 
 ## Male or female voice
 

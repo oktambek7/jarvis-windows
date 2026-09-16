@@ -328,9 +328,9 @@ audio:
 # conversation ends. Purely visual, no on-screen text. Drag it anywhere
 # with the mouse — it remembers where you put it (data/ui_overlay_pos.json).
 #
-# Needs PySide6 + qasync (pip install -e . already pulls both in). If either
-# is missing, Jarvis logs one line and falls back to the plain console —
-# never fails to start over a missing GUI dependency.
+# Needs PySide6 (pip install -e . already pulls it in). If it's missing,
+# Jarvis logs one line and falls back to the plain console — never fails to
+# start over a missing GUI dependency.
 ui:
   overlay:
     enabled: true

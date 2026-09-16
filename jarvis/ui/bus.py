@@ -32,9 +32,11 @@ class Event:
 
 class StateBus:
     """One or more subscribers (normally: one overlay widget). Callbacks run
-    synchronously on the publisher's thread/loop iteration — with qasync, the
-    Qt event loop and the asyncio loop are the same thread, so this is safe to
-    call directly from the voice loop with no marshalling.
+    synchronously, on whatever thread calls publish() — normally the asyncio
+    thread the voice loop runs on. A subscriber that needs to run on a
+    different thread (the overlay's Qt GUI thread) is responsible for its own
+    marshalling; see `overlay._EventBridge`, which hands publish() a Qt
+    signal's emit() instead of a direct widget callback.
     """
 
     def __init__(self) -> None:

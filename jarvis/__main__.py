@@ -171,7 +171,7 @@ async def _doctor(config_path: Path | None) -> int:
         "HUD overlay",
         overlay_available(),
         "" if overlay_available()
-        else ("pip install -e .  (PySide6 + qasync yo'q)" if wants_overlay
+        else ("pip install -e .  (PySide6 yo'q)" if wants_overlay
               else "ui.overlay.enabled: false — o'chirilgan"),
         fatal=False,
     )
@@ -469,7 +469,7 @@ def _run_with_optional_overlay(config_path: Path | None) -> None:
             run_with_overlay(cfg, lambda: run(config_path))
             return
         print(
-            "(HUD overlay uchun PySide6/qasync o'rnatilmagan — "
+            "(HUD overlay uchun PySide6 o'rnatilmagan — "
             "`pip install -e .` qiling. Hozircha konsolda davom etaman.)"
         )
 

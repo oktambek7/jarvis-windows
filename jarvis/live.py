@@ -262,11 +262,14 @@ class LiveSession:
                 return
 
     async def _watchdog(self) -> None:
-        # A qasync/Windows event-loop reentrancy bug (see
-        # _install_loop_exception_handler in app.py) can orphan the 'mic'
-        # task outright: its __step() is aborted before the coroutine body
-        # ever runs again, so no try/except inside _pump_mic can catch it.
-        # The task then sits "pending" forever, silently dead. The tell is
+        # Defense in depth against the 'mic' task getting orphaned outright:
+        # its __step() aborted before the coroutine body ever runs again, so
+        # no try/except inside _pump_mic can catch it, and the task then sits
+        # "pending" forever, silently dead. This used to happen via a qasync
+        # + Windows event-loop reentrancy bug (see jarvis/ui/runtime.py,
+        # which has since stopped sharing a thread between Qt and asyncio to
+        # remove that specific cause) — kept here because any future cause
+        # of the same symptom is worth catching the same way. The tell is
         # that _push_mic (audio.py) keeps feeding mic_queue from its own
         # thread every ~32ms regardless, so a dead consumer shows up as the
         # bounded queue staying pegged at maxsize instead of draining. Catch
