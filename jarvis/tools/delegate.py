@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
 from pathlib import Path
 
 from .. import winplat
@@ -38,6 +39,54 @@ VOICE_CONTEXT = (
 def claude_executable(cfg) -> str | None:
     """Absolute path to the Claude CLI, or None if it is not installed."""
     return winplat.resolve_executable(str(cfg.get("claude.command", "claude")))
+
+
+def claude_auth_status(cfg, timeout: float = 20.0) -> tuple[bool | None, str]:
+    """Whether the Claude CLI is signed in, and whose account it would spend.
+
+    Returns (logged_in, detail). logged_in is None when the question could not
+    be answered at all — no CLI, or a build predating `claude auth status` —
+    which is different from a confident "not signed in" and must not be
+    reported as a failure.
+
+    `claude auth status --json` is a local credential read: it costs no tokens
+    and contacts no model, so --doctor can afford to run it every time.
+    """
+    executable = claude_executable(cfg)
+    if executable is None:
+        return None, "topilmadi — npm install -g @anthropic-ai/claude-code"
+
+    argv = winplat.launch_argv(executable, ["auth", "status", "--json"])
+    try:
+        proc = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"holatini aniqlab bo'lmadi: {exc}"
+
+    try:
+        payload = json.loads(proc.stdout.strip())
+    except json.JSONDecodeError:
+        # An older CLI without the subcommand prints usage text, not JSON; a
+        # crashed one prints nothing at all. Neither means "signed out".
+        return None, f"{executable} (holat aniqlanmadi — CLI'ni yangilang)"
+    if not isinstance(payload, dict) or "loggedIn" not in payload:
+        return None, f"{executable} (holat aniqlanmadi)"
+
+    if not payload.get("loggedIn"):
+        return False, "tizimga kirilmagan — `claude auth login` ni ishga tushiring"
+
+    # Which account foots the bill is the whole point of showing this: a
+    # delegated task spends whatever this line names, not the Gemini key.
+    bits = [str(payload.get("email") or payload.get("authMethod") or "logged in")]
+    plan = str(payload.get("subscriptionType") or "").strip()
+    if plan:
+        bits.append(plan)
+    return True, " — ".join(bits)
 
 
 def _claude_argv(cfg, task: str, cwd: Path, model: str) -> list[str]:

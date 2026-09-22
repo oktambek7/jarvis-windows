@@ -214,13 +214,31 @@ async def _doctor(config_path: Path | None) -> int:
         row("Custom model", False, "ixtiyoriy — custom_model sozlanmagan", fatal=False)
 
     # -- claude cli: the hands --
+    # Finding the binary is not the same as being able to use it. An installed
+    # but signed-out CLI passed this check green and then failed every single
+    # delegation at runtime — and because run_claude_with_escalation reads a
+    # non-zero exit as "the cheap model wasn't up to it", each auth failure
+    # also bought a second, equally doomed Opus run. Ask the CLI itself.
+    from .tools.delegate import claude_auth_status
+
     claude_bin = winplat.resolve_executable(str(cfg.get("claude.command", "claude")))
-    row(
-        "Claude Code CLI",
-        bool(claude_bin),
-        claude_bin or "topilmadi — npm install -g @anthropic-ai/claude-code",
-        fatal=False,
-    )
+    if claude_bin is None:
+        row(
+            "Claude Code CLI",
+            False,
+            "ixtiyoriy — topilmadi, npm install -g @anthropic-ai/claude-code",
+            fatal=False,
+        )
+    else:
+        logged_in, detail = claude_auth_status(cfg)
+        # None means the CLI could not tell us, which is not evidence of a
+        # problem — report the path we found and leave it green.
+        row(
+            "Claude Code CLI",
+            logged_in is not False,
+            detail if logged_in is not None else claude_bin,
+            fatal=False,
+        )
 
     # -- openclaw: the self-hosted second brain (docs/OPENCLAW.md) --
     from .tools.openclaw import container_name as openclaw_container_name
