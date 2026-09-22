@@ -248,8 +248,13 @@ telegram:
 # never treated as "allow everyone".
 telegram_bot:
   enabled: true
-  # Numeric Telegram user ids allowed to command Jarvis this way.
-  allow_from: [1115457362]
+  # Numeric Telegram user ids allowed to command Jarvis this way. Put YOUR
+  # OWN id here (message @userinfobot to find it) — this list is the bot's
+  # only access control, and it must never be shipped with somebody else's
+  # id in it. Left empty the bot stays off, which is the safe default: a
+  # bot that refuses everyone is a nuisance, one that obeys the wrong
+  # person is a remote shell on your PC.
+  allow_from: []
   # "gemini" (default, spends Gemini quota) or "custom" (spends the
   # custom_model below instead — falls back to gemini if that isn't set up).
   brain: "gemini"
