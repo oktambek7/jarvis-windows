@@ -147,7 +147,28 @@ def execution_policy() -> str:
 # --------------------------------------------------------------- executables
 
 def resolve_executable(name: str) -> str | None:
-    """Absolute path to an executable, including .cmd/.bat shims."""
+    """Absolute path to an executable, including .cmd/.bat shims.
+
+    On Windows, prefer a candidate whose extension is in PATHEXT over a bare
+    extensionless file of the same name. shutil.which() will happily return the
+    latter, and some tools ship both: Docker Desktop's resources\\bin holds a
+    1KB extensionless `docker` (a shell script for WSL) right next to the real
+    docker.exe. CreateProcess cannot run the script and raises the same opaque
+    "[WinError 193] %1 is not a valid Win32 application" that batch shims do, so
+    callers that treat an OSError as "not installed" conclude Docker is absent
+    on a machine where it is running fine.
+    """
+    if not IS_WINDOWS:
+        return shutil.which(name)
+    if Path(name).suffix:
+        return shutil.which(name)
+    for ext in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";"):
+        ext = ext.strip()
+        if not ext:
+            continue
+        found = shutil.which(name + ext.lower())
+        if found:
+            return found
     return shutil.which(name)
 
 
