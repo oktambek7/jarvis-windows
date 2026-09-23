@@ -42,7 +42,18 @@ _dialog_cache_at: float = 0.0
 
 
 def session_path(cfg) -> str:
-    return str(cfg.path("telegram.session_path", "data/telegram"))
+    """Where Telethon keeps the login session, with its directory created.
+
+    Telethon opens this as a SQLite file the moment TelegramClient is
+    constructed, and sqlite3 will not create missing parent directories: it
+    fails with a bare "unable to open database file" that says nothing about
+    the real cause. `data/` is gitignored, so on a fresh clone it does not
+    exist until something writes to it -- and --telegram-login runs before the
+    app (and therefore before Memory) has ever created it.
+    """
+    path = cfg.path("telegram.session_path", "data/telegram")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def credentials(cfg) -> tuple[int, str] | None:

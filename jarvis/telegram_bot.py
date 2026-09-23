@@ -62,7 +62,16 @@ def allow_from(cfg) -> set[int]:
 
 
 def session_path(cfg) -> str:
-    return str(cfg.path("telegram_bot.session_path", "data/telegram_bot"))
+    """Where Telethon keeps the bot session, with its directory created.
+
+    Same reason as the user-account session in tools/telegram.py: sqlite3 does
+    not create missing parents and reports the failure only as "unable to open
+    database file". The bot can be started on a fresh clone before anything
+    else has written to the gitignored `data/`.
+    """
+    path = cfg.path("telegram_bot.session_path", "data/telegram_bot")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def status_path(cfg) -> Path:
