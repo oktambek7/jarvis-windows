@@ -23,18 +23,22 @@ agent:
   #              command CAN delete files. Everything is still
   #              written to logs/audit.jsonl.
   #
-  #  Currently shipped as "full". run_shell is PowerShell with your
-  #  full user rights and speech recognition is not perfect — a
-  #  misheard command CAN delete files with nothing standing in the
-  #  way except your own attention to what you actually said.
-  #  Every call is still written to logs/audit.jsonl either way, but
-  #  that's a record, not a safeguard. If you'd rather have destructive
-  #  commands ask first while you get a feel for it, set this to
-  #  "guarded" — spend a day there before flipping back to "full".
+  #  Shipped as "guarded", deliberately. run_shell is PowerShell
+  #  with your full user rights and speech recognition is not
+  #  perfect — on "full" a misheard command CAN delete files with
+  #  nothing standing in the way except your own attention to what
+  #  you actually said. Every call is written to logs/audit.jsonl
+  #  either way, but that's a record, not a safeguard, so the safe
+  #  setting is the one you get by default rather than the one you
+  #  have to remember to choose.
+  #
+  #  Spend a day here. Once you trust what it hears — your voice,
+  #  your accent, your microphone — flip it to "full" and it stops
+  #  asking. That is the mode this is really built for.
   #
   #  Flip this one word to change behaviour. Nothing else.
   # --------------------------------------------------------
-  autonomy: "full"
+  autonomy: "guarded"
 
 # ---------------- Wake word ----------------
 wake:

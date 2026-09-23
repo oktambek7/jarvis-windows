@@ -417,6 +417,9 @@ Telethon (the MTProto *user* API): it logs in as the user via
 contacts or chat list, which a Bot API integration cannot do (a bot can only
 message a chat that started the conversation with it).
 
-**Default autonomy:** both the macOS original and this port currently ship
-`autonomy: "full"` — no confirmation before destructive commands. Set it to
-`"guarded"` in `config.yaml` if you'd rather have a spoken confirmation first.
+**Default autonomy:** the macOS original ships `autonomy: "full"`. This port
+ships `"guarded"` instead — destructive commands speak a confirmation and wait
+for you. The port is the one strangers clone and run against their own PC on
+day one, and a safe default they can relax beats a fast default they have to
+remember to tighten. Set it to `"full"` in `config.yaml` once you trust what
+it hears; nothing else changes.

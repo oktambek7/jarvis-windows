@@ -119,11 +119,11 @@ Everything you'd want to change lives in **`config.yaml`**, including
 Every tool call is written to `logs/audit.jsonl` either way.
 
 > ⚠️ Jarvis runs PowerShell with your full user rights, and speech recognition
-> isn't perfect. On `autonomy: "full"` (the current default) a misheard command
-> CAN delete files, with nothing standing in the way except your own attention
-> to what you actually said. If you want destructive commands to ask first
-> while you get a feel for it, set `autonomy: "guarded"` — spend a day there
-> before switching to `"full"`.
+> isn't perfect. It ships on `autonomy: "guarded"`, so destructive commands
+> ask before they run. Switching to `"full"` removes that confirmation: a
+> misheard command CAN then delete files, with nothing standing in the way
+> except your own attention to what you actually said. Spend a day on
+> `"guarded"` first and flip it once you trust what it hears.
 
 ## More
 
