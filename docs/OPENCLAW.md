@@ -39,14 +39,42 @@ docker compose --profile mtproto ps
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18789/healthz
 ```
 
-This starts the stock `ghcr.io/openclaw/openclaw:latest` image (pulled
-fresh). The original deployment also had a `docker-compose.override.yml`
-pinning everything to a custom-built `live-talk` image for a native
-Telegram Mini App voice feature — that image's source wasn't part of the
-export, so the override was renamed to
-`docker-compose.override.yml.disabled-no-custom-image` and is not applied.
-Jarvis already has its own voice front end (Gemini Live + the wake word), so
-OpenClaw's Mini App Live Talk path is not needed for this integration.
+The original deployment had a `docker-compose.override.yml` pinning every
+service to a custom-built `live-talk` image for a native Telegram Mini App
+voice feature. That image's source wasn't part of the export, so the override
+was renamed to `docker-compose.override.yml.disabled-no-custom-image` and is
+not applied — Jarvis has its own voice front end (Gemini Live + the wake
+word), so OpenClaw's Mini App Live Talk path is not needed here.
+
+Disabling it, however, also took away two things the stack needs. Both are
+restored by a much smaller `docker-compose.override.yml` that does *not* pin
+the custom image:
+
+- **`realtime-web` is behind a profile again.** It is the Mini App service,
+  and in the base compose file it builds from `./realtime-web` — a directory
+  the export does not contain. Left in the default profile it fails the whole
+  `up` with `unable to prepare context: path ...\realtime-web not found`,
+  before a single container starts.
+- **`pull_policy` is `missing`, not `always`.** See the version pin below.
+
+### The image is pinned on purpose
+
+`.env` sets `OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:2026.5.22`. The base
+compose file otherwise tracks `:latest`, and `:latest` has moved a long way
+past what this export can read: `config/openclaw.json` was last written by
+OpenClaw 2026.5.20, and 2026.9.5 rejects it over a dozen keys it no longer
+recognises (plus a now-required `agents.ownership`), and refuses to start
+against the pre-SQLite session store in `config/agents/main/sessions`:
+
+```
+Legacy session store requires migration: .../sessions/sessions.json.
+Run "openclaw doctor --fix" ... | gateway.maintenance_required
+```
+
+The gateway then crash-loops on exit code 78 and `/healthz` never answers.
+Pinning keeps the exported config and Telegram history usable exactly as they
+are. To move forward later, migrate `openclaw.json` to the current schema, run
+`doctor --fix` for the session store, then raise or drop the pin.
 
 The `mtproto` profile additionally starts `tg-watcher`, which needs
 `TG_API_ID` / `TG_API_HASH` / `TG_USER_SESSION` in `.env` (already present in
@@ -63,8 +91,19 @@ the same mechanism OpenClaw's own `tg-watcher.js` uses internally to spawn a
 one-shot agent run:
 
 ```
-docker exec <container> node /app/dist/index.js agent --agent main --local --timeout <N> --message "<task>"
+docker exec <container> node /app/dist/index.js agent --agent main --local \
+  --session-key agent:main:jarvis-<random> --timeout <N> --message "<task>"
 ```
+
+The `--session-key` is generated fresh for every delegation. Without one the
+run joins the agent's default `main` session — the same session `tg-watcher`
+writes to for incoming Telegram messages — and two writers on one session file
+make OpenClaw abort with `EmbeddedAttemptSessionTakeoverError: session file
+changed while embedded prompt lock was released`. A delegation would then fail
+purely because a Telegram message happened to land while it was thinking. A
+per-run key also keeps concurrent background delegations off each other's
+transcript, and costs nothing in continuity: each task is already
+self-contained, since OpenClaw cannot see the conversation it came from.
 
 `config.yaml`'s `openclaw:` section controls the container name
 (`workshop-openclaw-gateway-1` by default — matches `docker compose ps`),
@@ -96,3 +135,18 @@ of Jarvis.
 - **Bot doesn't reply on Telegram**: check `docker compose logs -f
   openclaw-gateway`; this is unrelated to Jarvis and would fail the same way
   without it.
+- **Tool never offered although `docker compose ps` says the container is
+  up**: Jarvis is finding the wrong `docker`. Docker Desktop ships a 1KB
+  extensionless `docker` shell script (for WSL) next to the real `docker.exe`
+  in `resources\bin`, and `shutil.which("docker")` used to return the script,
+  which CreateProcess cannot run — `container_running` treats that OSError as
+  "Docker absent" and hides the tool. `winplat.resolve_executable` now prefers
+  a PATHEXT candidate; confirm with `.venv\Scripts\python -c "from jarvis
+  import winplat; print(winplat.resolve_executable('docker'))"`, which should
+  print a path ending in `.exe`.
+- **Replies arrive but the logs say `403 FORBIDDEN` for `celion`**: the custom
+  (non-Gemini/Claude) brain's API key in the workshop `.env` is not being
+  accepted, so OpenClaw falls back to `google/gemini-3.5-flash` and the
+  delegation quietly spends Gemini quota — the one thing routing through
+  OpenClaw is meant to avoid. The work still completes; fix the key to get the
+  budget benefit back.
