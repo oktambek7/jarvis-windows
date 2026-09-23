@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import uuid
 
 from .. import winplat
 from .agentwork import deliver
@@ -35,6 +36,24 @@ def container_name(cfg) -> str:
 
 def agent_id(cfg) -> str:
     return str(cfg.get("openclaw.agent_id", "main"))
+
+
+def _session_key(cfg) -> str:
+    """A fresh session key, unique to this one delegation.
+
+    Without an explicit key the agent CLI joins the agent's default `main`
+    session -- the same one tg-watcher drives for incoming Telegram messages.
+    Two writers on one session file make OpenClaw abort the run with
+    EmbeddedAttemptSessionTakeoverError ("session file changed while embedded
+    prompt lock was released"), so a delegation could fail purely because a
+    Telegram message arrived while it was thinking.
+
+    A per-run key also keeps concurrent background delegations off each other's
+    transcript, and costs nothing in continuity: the tool's contract already
+    requires each task to be self-contained, since OpenClaw cannot see the
+    conversation it came from.
+    """
+    return f"agent:{agent_id(cfg)}:jarvis-{uuid.uuid4().hex[:12]}"
 
 
 def docker_executable() -> str | None:
@@ -98,6 +117,7 @@ async def _run_openclaw_agent(cfg, task: str) -> tuple[bool, str]:
         "node", "/app/dist/index.js", "agent",
         "--agent", agent_id(cfg),
         "--local",
+        "--session-key", _session_key(cfg),
         "--timeout", str(timeout),
         "--message", task,
     ]
