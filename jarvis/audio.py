@@ -255,8 +255,26 @@ class WakeWordDetector:
         self.name = str(cfg.get("wake.model", "hey_jarvis"))
         self.threshold = float(cfg.get("wake.threshold", 0.5))
 
-        download_models([self.name])  # no-op once cached
-        self._model = Model(wakeword_models=[self.name], inference_framework="onnx")
+        # The model is fetched from the internet the first time and cached
+        # inside the openwakeword package. On a machine that is offline, or
+        # behind a proxy or TLS-inspecting firewall, this is the first thing
+        # that fails -- and it used to surface as a raw traceback from deep
+        # inside openwakeword, at the moment Jarvis was supposed to start
+        # listening. Deliberately not falling back to the no-wake path: that
+        # would leave a full-autonomy agent listening to everything said in
+        # the room, which is not a decision to make on the user's behalf.
+        try:
+            download_models([self.name])  # no-op once cached
+            self._model = Model(wakeword_models=[self.name], inference_framework="onnx")
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                f"Uyg'otish so'zi modeli ({self.name}) yuklanmadi: {exc}\n"
+                "  1. Internet aloqasini tekshiring — model birinchi marta "
+                "yuklab olinadi, keyin keshdan o'qiladi.\n"
+                "  2. Tekshirish: python -m jarvis --doctor\n"
+                "  3. Uyg'otish so'zisiz ishlatish (Jarvis doim tinglaydi — "
+                "shuni bilib turing): python -m jarvis --no-wake"
+            ) from exc
         self._buf = np.zeros(0, dtype=np.int16)
         # After a hit, ignore audio briefly so one utterance doesn't fire twice.
         self._cooldown = 0
