@@ -50,7 +50,19 @@ does not support it yet).
 ```powershell
 git clone https://github.com/oktambek7/jarvis-windows
 cd jarvis-windows
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
 
+`setup.ps1` checks your Windows and Python versions, builds the virtualenv,
+installs everything, creates `.env` (asking for the free Gemini key), checks
+the microphone privacy setting, and finishes by running `--doctor`. Anything
+it cannot fix itself, it prints the exact command for. `-ExecutionPolicy
+Bypass` applies to that one process only and changes nothing permanently — it
+is there because Windows blocks unsigned scripts by default.
+
+Same thing by hand, if you'd rather see every step:
+
+```powershell
 py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -e .
 
