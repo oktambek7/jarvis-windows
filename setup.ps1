@@ -235,7 +235,13 @@ if (-not (Test-Path $envPath)) {
 }
 
 $envText = Get-Content $envPath -Raw -Encoding UTF8
-$keyLine = [regex]::Match($envText, '(?m)^\s*GEMINI_API_KEY\s*=\s*(.*)$')
+# \s matches newlines too, so a pattern of GEMINI_API_KEY\s*=\s*(.*) walks
+# straight past an empty "GEMINI_API_KEY=" and captures the next non-blank
+# line -- the "# ---- Aisha AI ..." comment -- as if it were the key. The
+# script then reported the key as set, never prompted for one, and handed the
+# user a green "Prerequisites are in place" before --doctor failed with "API
+# key not valid". Horizontal whitespace only, and the capture stays on the line.
+$keyLine = [regex]::Match($envText, '(?m)^[ \t]*GEMINI_API_KEY[ \t]*=[ \t]*([^\r\n]*)')
 $geminiKey = ''
 if ($keyLine.Success) { $geminiKey = $keyLine.Groups[1].Value.Trim().Trim('"').Trim("'") }
 
@@ -250,7 +256,7 @@ if ($geminiKey) {
         $entered = (Read-Host "  Paste your Gemini API key now (or press Enter to do it later)").Trim()
     }
     if ($entered) {
-        $updated = [regex]::Replace($envText, '(?m)^\s*GEMINI_API_KEY\s*=.*$', "GEMINI_API_KEY=$entered")
+        $updated = [regex]::Replace($envText, '(?m)^[ \t]*GEMINI_API_KEY[ \t]*=[^\r\n]*', "GEMINI_API_KEY=$entered")
         # No BOM: python-dotenv reads the file as plain UTF-8, and a BOM would
         # become part of the first key's name.
         [System.IO.File]::WriteAllText($envPath, $updated, (New-Object System.Text.UTF8Encoding($false)))
