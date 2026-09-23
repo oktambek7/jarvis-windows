@@ -20,6 +20,7 @@ DANGEROUS = [
     "rd /s /q build",
     "Clear-RecycleBin -Force",
     "format C: /fs:NTFS",
+    "format D:",
     "diskpart",
     "Format-Volume -DriveLetter D",
     "Stop-Computer",

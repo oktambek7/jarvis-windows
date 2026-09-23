@@ -36,7 +36,11 @@ DESTRUCTIVE_PATTERNS = [
     r"\bRemove-(?:ItemProperty|Partition|PSDrive|LocalUser|ADUser)\b",
 
     # --- disk and volume ---
-    r"\bformat\b.*/(?:fs|q|y)\b", r"\bFormat-Volume\b", r"\bdiskpart\b",
+    # `format D:` on its own is interactive and would stall rather than
+    # wipe, but config.yaml promises guarded mode confirms "format" flatly,
+    # so the guard should match the promise instead of the narrower case.
+    r"\bformat(?:\.com)?\s+[A-Za-z]:", r"\bformat\b.*/(?:fs|q|y)\b",
+    r"\bFormat-Volume\b", r"\bdiskpart\b",
     r"\bInitialize-Disk\b", r"\bClear-Disk\b", r"\bSet-Partition\b",
 
     # --- power and process control ---
