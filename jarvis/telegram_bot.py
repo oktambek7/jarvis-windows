@@ -51,11 +51,26 @@ def bot_token() -> str | None:
 
 
 def allow_from(cfg) -> set[int]:
+    """Telegram user ids allowed to command Jarvis, from config.yaml or .env.
+
+    config.yaml is tracked by git, so putting a personal user id there means
+    carrying a permanent local modification, a conflict on every pull, and the
+    chance of committing the id to a public repo -- a mistake this project has
+    already had to undo once. When telegram_bot.allow_from is left empty,
+    TELEGRAM_ALLOWED_USER_IDS in .env is read instead (comma-separated), which
+    is where every other per-machine secret here already lives and which
+    .gitignore has always covered.
+
+    Empty in both places still means the bot stays off. This adds a second
+    place to say yes; it never becomes a way to default to "anyone".
+    """
     ids = cfg.get("telegram_bot.allow_from", []) or []
+    if not ids:
+        ids = os.getenv("TELEGRAM_ALLOWED_USER_IDS", "").split(",")
     out = set()
     for raw in ids:
         try:
-            out.add(int(raw))
+            out.add(int(str(raw).strip()))
         except (TypeError, ValueError):
             continue
     return out

@@ -247,17 +247,20 @@ telegram:
 # when you're away from the PC's mic. Needs, in .env:
 #   TELEGRAM_BOT_TOKEN          — from @BotFather
 #   TELEGRAM_API_ID/API_HASH    — same ones telegram: above uses
-# and, below, allow_from with your own numeric Telegram user id (find it by
-# messaging @userinfobot). An empty allow_from means the bot stays off —
-# never treated as "allow everyone".
+# and your own numeric Telegram user id (find it by messaging @userinfobot),
+# set as TELEGRAM_ALLOWED_USER_IDS in .env. Empty everywhere means the bot
+# stays off — never treated as "allow everyone".
 telegram_bot:
   enabled: true
-  # Numeric Telegram user ids allowed to command Jarvis this way. Put YOUR
-  # OWN id here (message @userinfobot to find it) — this list is the bot's
-  # only access control, and it must never be shipped with somebody else's
-  # id in it. Left empty the bot stays off, which is the safe default: a
-  # bot that refuses everyone is a nuisance, one that obeys the wrong
-  # person is a remote shell on your PC.
+  # Numeric Telegram user ids allowed to command Jarvis this way — the bot's
+  # only access control. Left empty (the shipped default), this falls back to
+  # TELEGRAM_ALLOWED_USER_IDS in .env, which is the better place for it: .env
+  # is gitignored, so your id cannot end up in a commit. Use this list only
+  # for an id you would be happy to publish.
+  #
+  # Empty in both places means the bot stays off, which is the safe default:
+  # a bot that refuses everyone is a nuisance, one that obeys the wrong person
+  # is a remote shell on your PC.
   allow_from: []
   # "gemini" (default, spends Gemini quota) or "custom" (spends the
   # custom_model below instead — falls back to gemini if that isn't set up).

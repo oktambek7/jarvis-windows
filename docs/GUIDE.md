@@ -129,14 +129,18 @@ Setup:
 1. Message `@BotFather` → `/newbot` → copy the token into `.env` as
    `TELEGRAM_BOT_TOKEN`.
 2. Message `@userinfobot` to get your own numeric Telegram user id.
-3. Set `telegram_bot.allow_from: [<your id>]` in `config.yaml`.
+3. Put it in `.env` as `TELEGRAM_ALLOWED_USER_IDS=<your id>` (comma-separated
+   for more than one). `config.yaml`'s `telegram_bot.allow_from` takes the
+   same ids and wins when it is non-empty, but `.env` is gitignored and
+   `config.yaml` is not, so the id belongs in `.env` unless you would be happy
+   to publish it.
 4. Make sure `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` are set too (same app
    credentials `send_telegram_message` uses).
 
 The bot runs as a background task alongside the wake-word voice loop inside
 the same `python -m jarvis` process — one running assistant, reachable both
-ways, sharing memory and the audit log. An **empty `allow_from` always means
-the bot stays off**, even with a valid token: this bot can run shell
+ways, sharing memory and the audit log. **No allowlist in either place always
+means the bot stays off**, even with a valid token: this bot can run shell
 commands on your PC, so an unconfigured allowlist must never default to
 "anyone who finds the bot can command it." If the bot crashes (a Telegram-side
 network issue, say), the voice loop keeps running regardless — see
